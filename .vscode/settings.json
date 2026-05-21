@@ -1,0 +1,23 @@
+{
+  "python.defaultInterpreterPath": "${userHome}/.venvs/dfs2026-dev",
+  "python.terminal.activateEnvironment": true,
+
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.diagnosticMode": "openFilesOnly",
+
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true
+  },
+
+  "search.exclude": {
+    "outputs": true,
+    "runs": true,
+    "logs": true,
+    "cache": true,
+    "tmp": true,
+    "**/__pycache__": true
+  },
+  "cursorpyright.analysis.diagnosticMode": "openFilesOnly",
+  "cursorpyright.analysis.typeCheckingMode": "basic"
+}

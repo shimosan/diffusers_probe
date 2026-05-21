@@ -1,0 +1,16 @@
+---
+description: Project rules pointer — defer to CLAUDE.md for detailed workflow and conventions
+alwaysApply: true
+---
+
+# このプロジェクトのルールは [CLAUDE.md](../../CLAUDE.md) に集約
+
+詳細な workflow / コーディング規約 / プロジェクト固有方針は、リポジトリルートの `CLAUDE.md` を参照してください。Cursor 上で AI 作業を行う場合も、CLAUDE.md の方針に従うこと。
+
+汎用的な最重要事項のみ抜粋:
+
+- **secret (`.env`, API key, token 等) を commit しない**
+- **マシン固有の絶対パスをハードコードしない** (`~/...` などの home 相対や環境変数を使う)
+- **大きな成果物 (build artifacts, caches, モデル重み等) を git 管理下に置かない**
+
+Git 操作の安全規約は [git-safety.mdc](git-safety.mdc) を参照。

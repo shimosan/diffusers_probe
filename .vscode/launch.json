@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug env check",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/00_env_check.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Debug SD1.5 generate smoke",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/01_sd15_generate_smoke.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Debug SD1.5 generate",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/scripts/02_sd15_generate.py",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}

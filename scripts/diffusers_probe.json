@@ -1,0 +1,27 @@
+{
+  "workspace_name": "diffusers_probe",
+  "default_model": "sd15",
+
+  "common": {
+    "prompt": "A small robot studying artificial intelligence in a university classroom, simple illustration",
+    "negative_prompt": "blurry, low quality, distorted",
+    "seed": 42
+  },
+
+  "models": {
+    "sd15": {
+      "model_id": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+      "width": 512,
+      "height": 512,
+      "num_inference_steps": 20,
+      "guidance_scale": 7.5,
+
+      "mps_dtype": "float16",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "disable_safety_checker": true,
+      "enable_attention_slicing_on_mps": true,
+      "vae_fp32_override": false
+    }
+  }
+}

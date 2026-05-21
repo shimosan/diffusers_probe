@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Local environments
+.venv/
+venv/
+env/
+
+# Runtime outputs
+outputs/
+runs/
+logs/
+cache/
+tmp/
+
+# Sandbox notebooks (free to modify, not tracked)
+sandbox/
+
+# Secrets / local env
+.env
+.env.*
+huggingface_token*
+
+# Claude Code project-local settings (machine-specific, not for sharing)
+.claude/
+
+# OS/editor noise
+.DS_Store
+*.code-workspace

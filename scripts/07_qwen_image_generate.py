@@ -1,0 +1,215 @@
+# 07_qwen_image_generate.py
+#
+# Qwen-Image の生成 script。Apache 2.0、非 gated。
+#
+# 設定: scripts/diffusers_probe.json
+#   common.{prompt, negative_prompt, seed, width, height}
+#   models.qwen_image.{model_id, num_inference_steps=30, guidance_scale=4.0,
+#                       true_cfg_scale, bfloat16, enable_model_cpu_offload, fallback}
+#
+# Qwen-Image は大きな MMDiT モデル (約 20B parameters)。MPS では確実に重い。
+# 失敗時は fallback (低解像度/少ステップ) を試し、それでも厳しければ GPU サーバー候補と記録する。
+#
+# 出力:
+#   outputs/qwen_image_generate.png
+#   outputs/qwen_image_generate_summary.json
+#   outputs/qwen_image_generate.txt
+
+from __future__ import annotations
+
+import time
+import traceback
+
+import torch
+
+from common import (
+    build_summary_base,
+    get_common,
+    get_model_config,
+    hint_for_load_error,
+    load_config,
+    pick_device_and_dtype,
+    write_outputs,
+)
+
+MODEL_KEY = "qwen_image"
+SCRIPT_NAME = "07_qwen_image_generate.py"
+OUTPUT_BASENAME = "qwen_image_generate"
+
+
+def main() -> int:
+    cfg = load_config()
+    common = get_common(cfg)
+    model_cfg = get_model_config(cfg, MODEL_KEY)
+
+    model_id = model_cfg["model_id"]
+    width = int(common.get("width", model_cfg.get("width", 1024)))
+    height = int(common.get("height", model_cfg.get("height", 1024)))
+    num_inference_steps = int(model_cfg["num_inference_steps"])
+    guidance_scale = float(model_cfg["guidance_scale"])
+    true_cfg_scale = float(model_cfg.get("true_cfg_scale", guidance_scale))
+
+    prompt = common["prompt"]
+    negative_prompt = common.get("negative_prompt", "")
+    seed = int(common["seed"])
+
+    attn_slicing_mps = bool(model_cfg.get("enable_attention_slicing_on_mps", True))
+    cpu_offload = bool(model_cfg.get("enable_model_cpu_offload", False))
+
+    device, dtype = pick_device_and_dtype(model_cfg)
+
+    print("=== diffusers_probe / Qwen-Image generate ===")
+    print(f"  model_id        : {model_id}")
+    print(f"  device          : {device}")
+    print(f"  dtype           : {dtype}")
+    print(f"  attn_slicing(MPS): {attn_slicing_mps}")
+    print(f"  cpu_offload     : {cpu_offload}")
+    print(f"  size            : {width} x {height}")
+    print(f"  steps           : {num_inference_steps}")
+    print(f"  guidance        : {guidance_scale}")
+    print(f"  true_cfg_scale  : {true_cfg_scale}")
+    print(f"  seed            : {seed}")
+    print(f"  prompt          : {prompt}")
+    if negative_prompt:
+        print(f"  neg prompt      : {negative_prompt}")
+    print()
+    print("[note] Qwen-Image は大きなモデルです (約 20B)。MPS では重い可能性が高いです。")
+    print("[note] 初回 download は数十 GB クラスです。download 時間が混ざります。")
+    print()
+
+    try:
+        from diffusers import QwenImagePipeline  # pyright: ignore[reportPrivateImportUsage]
+    except Exception as e:
+        print(f"[error] diffusers の import に失敗: {type(e).__name__}: {e}")
+        print("[hint ] Qwen-Image には diffusers の新しいバージョンが必要です。")
+        return 1
+
+    print("[load] QwenImagePipeline.from_pretrained ...")
+    t0 = time.perf_counter()
+    try:
+        pipe = QwenImagePipeline.from_pretrained(model_id, torch_dtype=dtype)
+    except Exception as e:
+        print(f"[error] model load に失敗: {type(e).__name__}: {e}")
+        for line in hint_for_load_error(e, model_id):
+            print(line)
+        traceback.print_exc()
+        return 1
+
+    if cpu_offload:
+        try:
+            pipe.enable_model_cpu_offload()
+            print("[mem ] enable_model_cpu_offload() 有効化")
+        except Exception as e:
+            print(f"[warn] cpu_offload 失敗、to(device) にフォールバック: {e}")
+            pipe = pipe.to(device)
+    else:
+        pipe = pipe.to(device)
+
+    if attn_slicing_mps and device == "mps":
+        try:
+            pipe.enable_attention_slicing()
+            print("[mps ] enable_attention_slicing() 有効化")
+        except Exception as e:
+            print(f"[warn] enable_attention_slicing() 失敗: {e}")
+
+    load_elapsed = time.perf_counter() - t0
+    print(f"[load] done in {load_elapsed:.2f} s (初回は download 時間を含む)")
+
+    generator = torch.Generator(device="cpu" if device == "mps" else device).manual_seed(seed)
+
+    def try_generate(_w: int, _h: int, _steps: int):
+        print(f"[gen ] running pipeline ... ({_w}x{_h}, steps={_steps})")
+        _t = time.perf_counter()
+        kwargs = dict(
+            prompt=prompt,
+            negative_prompt=negative_prompt or None,
+            width=_w,
+            height=_h,
+            num_inference_steps=_steps,
+            true_cfg_scale=true_cfg_scale,
+            generator=generator,
+        )
+        _r = pipe(**kwargs)
+        return _r, time.perf_counter() - _t
+
+    used_fallback = False
+    try:
+        result, gen_elapsed = try_generate(width, height, num_inference_steps)
+    except Exception as e:
+        print(f"[error] 生成に失敗: {type(e).__name__}: {e}")
+        fb = model_cfg.get("fallback")
+        if fb:
+            print(f"[fallback] 低解像度/少ステップで再試行: {fb}")
+            try:
+                fb_w = int(fb["width"])
+                fb_h = int(fb["height"])
+                fb_steps = int(fb["num_inference_steps"])
+                result, gen_elapsed = try_generate(fb_w, fb_h, fb_steps)
+                width, height, num_inference_steps = fb_w, fb_h, fb_steps
+                used_fallback = True
+            except Exception as e2:
+                print(f"[error] fallback も失敗: {type(e2).__name__}: {e2}")
+                print("[gpu-server-candidate] Qwen-Image は MPS では実用厳しい可能性 → GPU サーバー候補")
+                traceback.print_exc()
+                return 1
+        else:
+            traceback.print_exc()
+            return 1
+
+    image = result.images[0]  # type: ignore[attr-defined]
+    print(f"[gen ] done in {gen_elapsed:.2f} s")
+
+    total_elapsed = time.perf_counter() - t0
+
+    extras = {
+        "true_cfg_scale": true_cfg_scale,
+        "enable_model_cpu_offload": cpu_offload,
+        "attention_slicing_enabled": attn_slicing_mps and device == "mps",
+        "used_fallback": used_fallback,
+    }
+    summary = build_summary_base(
+        script=SCRIPT_NAME,
+        cfg=cfg,
+        model_key=MODEL_KEY,
+        model_id=model_id,
+        device=device,
+        dtype=dtype,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        width=width,
+        height=height,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        seed=seed,
+        load_time_sec=load_elapsed,
+        generation_time_sec=gen_elapsed,
+        total_time_sec=total_elapsed,
+        image_relpath=f"outputs/{OUTPUT_BASENAME}.png",
+        extras=extras,
+    )
+
+    png_path, json_path, txt_path = write_outputs(
+        image=image,
+        summary=summary,
+        output_basename=OUTPUT_BASENAME,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+    )
+    print(f"[save] image   -> {png_path}")
+    print(f"[save] summary -> {json_path}")
+    print(f"[save] prompt  -> {txt_path}")
+
+    print()
+    print("=== timing ===")
+    print(f"  load time      : {load_elapsed:.2f} s (初回 download 含む)")
+    print(f"  generation time: {gen_elapsed:.2f} s")
+    print(f"  total time     : {total_elapsed:.2f} s")
+    if used_fallback:
+        print("  [!] fallback (低解像度/少 step) を使用しました")
+    print()
+    print("=== done ===")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

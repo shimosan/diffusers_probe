@@ -1,32 +1,18 @@
 # 02_sd15_generate.py
 #
-# Stable Diffusion 1.5 の標準生成 script。普段使う default 動作はここ。
+# Stable Diffusion 1.5 を 2 パスで生成する script。
 #
-# 設定は scripts/diffusers_probe.json から:
-#   common.{prompt, negative_prompt, seed}
-#   models.sd15.{model_id, width, height, num_inference_steps, guidance_scale,
-#                mps_dtype, cuda_dtype, cpu_dtype,
-#                disable_safety_checker, enable_attention_slicing_on_mps, vae_fp32_override}
+#   pass A : 1024x1024 / float32  (他モデルと同じ 1024 解像度で比較するため。fp16 だと UNet/VAE が NaN になる)
+#   pass B : 512x512  / float16   (SD1.5 のネイティブ解像度・実用設定での参考画像)
 #
-# 既定値は Apple Silicon / MPS のコミュニティ実用パターンに寄せてある:
-#   - 基本 fp16 (memory 削減 & 速度)
-#   - safety_checker を外す (CLIP-based の fp16 誤発火を避ける)
-#   - attention slicing 有効
-#   - vae_fp32_override は false (必要なら true で --no-half-vae 相当)
+# 同じ prompt / negative_prompt / seed を使うので、構図破綻と本来の品質の対比が見える。
 #
-# 01_sd15_generate_smoke.py は超安全策 (全 fp32 + safety_checker 有り) で、
-# 動作確認だけしたいときに使う。本 script はそれより速く・実用寄り。
-#
-# 出力:
-#   outputs/sd15_generate.png
-#   outputs/sd15_generate_summary.json
-#   outputs/sd15_generate.txt
+# 出力 (2 セット):
+#   outputs/sd15_generate_1024_fp32.png / _summary.json / .txt
+#   outputs/sd15_generate_512_fp16.png  / _summary.json / .txt
 
 from __future__ import annotations
 
-import json
-import platform
-import sys
 import time
 import traceback
 from typing import cast
@@ -34,54 +20,117 @@ from typing import cast
 import torch
 
 from common import (
-    ensure_dir,
+    build_summary_base,
     get_common,
     get_model_config,
+    hint_for_load_error,
     load_config,
-    project_root,
-    resolve_outputs_dir,
+    write_outputs,
 )
 
 MODEL_KEY = "sd15"
-OUTPUT_BASENAME = "sd15_generate"
-
-_DTYPE_MAP = {
-    "float16": torch.float16,
-    "fp16": torch.float16,
-    "half": torch.float16,
-    "float32": torch.float32,
-    "fp32": torch.float32,
-    "full": torch.float32,
-}
+SCRIPT_NAME = "02_sd15_generate.py"
 
 
-def parse_dtype(name: str | None, default: torch.dtype) -> torch.dtype:
-    if name is None:
-        return default
-    return _DTYPE_MAP.get(str(name).lower(), default)
+def load_pipeline(model_id: str, dtype: torch.dtype, device: str, *, attention_slicing: bool):
+    from diffusers import StableDiffusionPipeline  # pyright: ignore[reportPrivateImportUsage]
+
+    print(f"[load] StableDiffusionPipeline.from_pretrained (dtype={dtype}) ...")
+    t0 = time.perf_counter()
+    pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype)
+    pipe = pipe.to(device)
+    pipe.safety_checker = None
+    if attention_slicing and device == "mps":
+        pipe.enable_attention_slicing()
+        print("[mps ] enable_attention_slicing() 有効化")
+    elapsed = time.perf_counter() - t0
+    print(f"[load] done in {elapsed:.2f} s")
+    return pipe, elapsed
 
 
-def pick_device_and_dtype(model_cfg: dict) -> tuple[str, torch.dtype]:
-    if torch.cuda.is_available():
-        return "cuda", parse_dtype(model_cfg.get("cuda_dtype"), torch.float16)
-    mps_backend = getattr(torch.backends, "mps", None)
-    if mps_backend is not None and mps_backend.is_available():
-        return "mps", parse_dtype(model_cfg.get("mps_dtype"), torch.float16)
-    return "cpu", parse_dtype(model_cfg.get("cpu_dtype"), torch.float32)
+def run_pass(
+    *,
+    cfg: dict,
+    pipe,
+    pass_name: str,
+    output_basename: str,
+    model_id: str,
+    device: str,
+    dtype: torch.dtype,
+    width: int,
+    height: int,
+    num_inference_steps: int,
+    guidance_scale: float,
+    prompt: str,
+    negative_prompt: str,
+    seed: int,
+    load_time_sec: float,
+    attention_slicing_on: bool,
+) -> float:
+    from diffusers.pipelines.stable_diffusion.pipeline_output import (
+        StableDiffusionPipelineOutput,
+    )
 
+    print(f"=== pass {pass_name} : {width}x{height} / {dtype} ===")
+    generator = torch.Generator(device="cpu" if device == "mps" else device).manual_seed(seed)
 
-def apply_vae_fp32_override(pipe) -> None:
-    """VAE のみ fp32 化し、decode 直前で latent を fp32 にキャストする hook を入れる。
-    AUTOMATIC1111 の --no-half-vae 相当。
-    """
-    pipe.vae = pipe.vae.to(dtype=torch.float32)
-    original_decode = pipe.vae.decode
+    t1 = time.perf_counter()
+    result = pipe(
+        prompt=prompt,
+        negative_prompt=negative_prompt or None,
+        width=width,
+        height=height,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        generator=generator,
+    )
+    gen_elapsed = time.perf_counter() - t1
+    result = cast(StableDiffusionPipelineOutput, result)
+    image = result.images[0]
+    nsfw_flags = result.nsfw_content_detected
+    nsfw_detected = bool(nsfw_flags[0]) if (nsfw_flags is not None and len(nsfw_flags) > 0) else False
+    print(f"[gen ] pass {pass_name} done in {gen_elapsed:.2f} s")
+    if nsfw_detected:
+        print("[warn] safety_checker NSFW 検出 → 黒塗り画像になります")
 
-    def patched_decode(z, *args, **kwargs):
-        z = z.to(dtype=torch.float32)
-        return original_decode(z, *args, **kwargs)
+    extras = {
+        "pass": pass_name,
+        "safety_checker_enabled": False,
+        "attention_slicing_enabled": attention_slicing_on,
+        "nsfw_content_detected": nsfw_detected,
+    }
+    summary = build_summary_base(
+        script=SCRIPT_NAME,
+        cfg=cfg,
+        model_key=MODEL_KEY,
+        model_id=model_id,
+        device=device,
+        dtype=dtype,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+        width=width,
+        height=height,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        seed=seed,
+        load_time_sec=load_time_sec,
+        generation_time_sec=gen_elapsed,
+        total_time_sec=load_time_sec + gen_elapsed,
+        image_relpath=f"outputs/{output_basename}.png",
+        extras=extras,
+    )
 
-    pipe.vae.decode = patched_decode  # type: ignore[method-assign]
+    png_path, json_path, txt_path = write_outputs(
+        image=image,
+        summary=summary,
+        output_basename=output_basename,
+        prompt=prompt,
+        negative_prompt=negative_prompt,
+    )
+    print(f"[save] image   -> {png_path}")
+    print(f"[save] summary -> {json_path}")
+    print(f"[save] prompt  -> {txt_path}")
+    return gen_elapsed
 
 
 def main() -> int:
@@ -90,8 +139,6 @@ def main() -> int:
     model_cfg = get_model_config(cfg, MODEL_KEY)
 
     model_id: str = model_cfg["model_id"]
-    width: int = int(model_cfg["width"])
-    height: int = int(model_cfg["height"])
     num_inference_steps: int = int(model_cfg["num_inference_steps"])
     guidance_scale: float = float(model_cfg["guidance_scale"])
 
@@ -99,25 +146,17 @@ def main() -> int:
     negative_prompt: str = common.get("negative_prompt", "")
     seed: int = int(common["seed"])
 
-    disable_safety = bool(model_cfg.get("disable_safety_checker", True))
-    attn_slicing_mps = bool(model_cfg.get("enable_attention_slicing_on_mps", True))
-    vae_fp32_override = bool(model_cfg.get("vae_fp32_override", False))
+    if torch.cuda.is_available():
+        device = "cuda"
+    else:
+        mps_backend = getattr(torch.backends, "mps", None)
+        device = "mps" if (mps_backend is not None and mps_backend.is_available()) else "cpu"
 
-    outputs_dir = ensure_dir(resolve_outputs_dir())
-    png_path = outputs_dir / f"{OUTPUT_BASENAME}.png"
-    json_path = outputs_dir / f"{OUTPUT_BASENAME}_summary.json"
-    txt_path = outputs_dir / f"{OUTPUT_BASENAME}.txt"
+    attention_slicing = bool(model_cfg.get("enable_attention_slicing_on_mps", True))
 
-    device, dtype = pick_device_and_dtype(model_cfg)
-
-    print("=== diffusers_probe / SD1.5 generate ===")
+    print("=== diffusers_probe / SD1.5 generate (2-pass) ===")
     print(f"  model_id        : {model_id}")
     print(f"  device          : {device}")
-    print(f"  dtype           : {dtype}  (from models.{MODEL_KEY})")
-    print(f"  safety_checker  : {'OFF (disabled)' if disable_safety else 'ON (default)'}")
-    print(f"  vae_fp32_override: {vae_fp32_override}")
-    print(f"  attn_slicing(MPS): {attn_slicing_mps}")
-    print(f"  size            : {width} x {height}")
     print(f"  steps           : {num_inference_steps}")
     print(f"  guidance        : {guidance_scale}")
     print(f"  seed            : {seed}")
@@ -125,135 +164,81 @@ def main() -> int:
     if negative_prompt:
         print(f"  neg prompt      : {negative_prompt}")
     print()
+    print("  pass A : 1024x1024 / float32 (他モデルと同解像度比較用)")
+    print("  pass B :  512x512 / float16 (SD1.5 ネイティブ解像度)")
+    print()
     print("[note] 初回実行は Hugging Face cache への download 時間が混ざります。")
-    print("       生成時間の測定は 2 回目以降の値を参考にしてください。")
     print()
 
+    # pass A: 1024 fp32
     try:
-        # diffusers は _LazyModule 経由で公開しているので Pyright の
-        # reportPrivateImportUsage が誤検知する。実行時の public API はこの形が正。
-        from diffusers import StableDiffusionPipeline  # pyright: ignore[reportPrivateImportUsage]
-        from diffusers.pipelines.stable_diffusion.pipeline_output import (
-            StableDiffusionPipelineOutput,
-        )
+        pipe_a, load_a = load_pipeline(model_id, torch.float32, device, attention_slicing=attention_slicing)
     except Exception as e:
-        print(f"[error] diffusers の import に失敗しました: {type(e).__name__}: {e}")
-        return 1
-
-    print("[load] StableDiffusionPipeline.from_pretrained ...")
-    t0 = time.perf_counter()
-    try:
-        pipe = StableDiffusionPipeline.from_pretrained(model_id, torch_dtype=dtype)
-    except Exception as e:
-        name = type(e).__name__
-        msg = str(e)
-        print(f"[error] model load に失敗しました: {name}: {msg}")
-        if "401" in msg or "gated" in msg.lower() or "access" in msg.lower() or "Unauthorized" in msg:
-            print("[hint] Hugging Face の access denied / gated repo の可能性があります。")
-            print("       次を試してください:")
-            print("         1) https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5 で利用条件を承認")
-            print("         2) 端末で `hf auth login` を実行 (token はファイルに保存しないでください)")
-        elif "ConnectionError" in name or "Timeout" in name or "Resolve" in msg:
-            print("[hint] ネットワーク接続に問題がある可能性があります。")
+        print(f"[error] pass A load 失敗: {type(e).__name__}: {e}")
+        for line in hint_for_load_error(e, model_id):
+            print(line)
         traceback.print_exc()
         return 1
-
-    pipe = pipe.to(device)
-
-    if disable_safety:
-        pipe.safety_checker = None
-
-    if vae_fp32_override and dtype != torch.float32:
-        apply_vae_fp32_override(pipe)
-        print("[vae ] vae_fp32_override 適用 (VAE のみ fp32、decode 前に latent を fp32 化)")
-
-    if attn_slicing_mps and device == "mps":
-        pipe.enable_attention_slicing()
-        print("[mps ] enable_attention_slicing() 有効化")
-    load_elapsed = time.perf_counter() - t0
-    print(f"[load] done in {load_elapsed:.2f} s (初回は download 時間を含む)")
-
-    generator = torch.Generator(device=device if device != "mps" else "cpu").manual_seed(seed)
-
-    print("[gen ] running pipeline ...")
-    t1 = time.perf_counter()
     try:
-        result = pipe(
-            prompt=prompt,
-            negative_prompt=negative_prompt or None,
-            width=width,
-            height=height,
+        gen_a = run_pass(
+            cfg=cfg,
+            pipe=pipe_a,
+            pass_name="A",
+            output_basename="sd15_generate_1024_fp32",
+            model_id=model_id,
+            device=device,
+            dtype=torch.float32,
+            width=1024,
+            height=1024,
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
-            generator=generator,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            seed=seed,
+            load_time_sec=load_a,
+            attention_slicing_on=(attention_slicing and device == "mps"),
         )
     except Exception as e:
-        print(f"[error] 生成に失敗しました: {type(e).__name__}: {e}")
+        print(f"[error] pass A 生成失敗: {type(e).__name__}: {e}")
         traceback.print_exc()
         return 1
-    gen_elapsed = time.perf_counter() - t1
-    # pipe.__call__ は戻り値型注釈が無く、Pyright は tuple との union と推論する。
-    # ここでは return_dict=True (既定) で呼び出しているので StableDiffusionPipelineOutput が返る。
-    result = cast(StableDiffusionPipelineOutput, result)
-    image = result.images[0]
-    nsfw_flags = result.nsfw_content_detected
-    nsfw_detected = bool(nsfw_flags[0]) if (nsfw_flags is not None and len(nsfw_flags) > 0) else False
-    print(f"[gen ] done in {gen_elapsed:.2f} s")
-    if nsfw_detected:
-        print("[warn] safety_checker が NSFW を検出 → 画像は黒塗りになります。")
-        print("       disable_safety_checker を true にするか、dtype を float32 に上げて再試行してください。")
+    del pipe_a
 
-    total_elapsed = time.perf_counter() - t0
-
-    image.save(png_path)
-    print(f"[save] image -> {png_path}")
-
-    summary = {
-        "script": "02_sd15_generate.py",
-        "workspace_name": cfg.get("workspace_name", "diffusers_probe"),
-        "model_key": MODEL_KEY,
-        "model_id": model_id,
-        "device": device,
-        "dtype": str(dtype),
-        "safety_checker_enabled": not disable_safety,
-        "vae_fp32_override": vae_fp32_override,
-        "attention_slicing_enabled": attn_slicing_mps and device == "mps",
-        "platform": platform.platform(),
-        "python": sys.version.split()[0],
-        "prompt": prompt,
-        "negative_prompt": negative_prompt,
-        "width": width,
-        "height": height,
-        "num_inference_steps": num_inference_steps,
-        "guidance_scale": guidance_scale,
-        "seed": seed,
-        "nsfw_content_detected": nsfw_detected,
-        "load_time_sec": round(load_elapsed, 3),
-        "generation_time_sec": round(gen_elapsed, 3),
-        "total_time_sec": round(total_elapsed, 3),
-        "image_path": str(png_path.relative_to(project_root())),
-    }
-    with json_path.open("w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=2, ensure_ascii=False)
-    print(f"[save] summary -> {json_path}")
-
-    txt_lines = [
-        f"script: 02_sd15_generate.py",
-        f"model_id: {model_id}",
-        f"prompt: {prompt}",
-        f"negative_prompt: {negative_prompt}",
-        f"image_path: {png_path}",
-        f"summary_path: {json_path}",
-    ]
-    with txt_path.open("w", encoding="utf-8") as f:
-        f.write("\n".join(txt_lines) + "\n")
-    print(f"[save] prompt+paths -> {txt_path}")
+    # pass B: 512 fp16
+    try:
+        pipe_b, load_b = load_pipeline(model_id, torch.float16, device, attention_slicing=attention_slicing)
+    except Exception as e:
+        print(f"[error] pass B load 失敗: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return 1
+    try:
+        gen_b = run_pass(
+            cfg=cfg,
+            pipe=pipe_b,
+            pass_name="B",
+            output_basename="sd15_generate_512_fp16",
+            model_id=model_id,
+            device=device,
+            dtype=torch.float16,
+            width=512,
+            height=512,
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            seed=seed,
+            load_time_sec=load_b,
+            attention_slicing_on=(attention_slicing and device == "mps"),
+        )
+    except Exception as e:
+        print(f"[error] pass B 生成失敗: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return 1
 
     print()
-    print("=== timing ===")
-    print(f"  load time      : {load_elapsed:.2f} s (初回 download 含む)")
-    print(f"  generation time: {gen_elapsed:.2f} s")
-    print(f"  total time     : {total_elapsed:.2f} s")
+    print("=== timing summary ===")
+    print(f"  pass A (1024 fp32) : load {load_a:.2f} s + gen {gen_a:.2f} s")
+    print(f"  pass B ( 512 fp16) : load {load_b:.2f} s + gen {gen_b:.2f} s")
     print()
     print("=== done ===")
     return 0

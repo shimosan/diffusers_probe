@@ -5,14 +5,16 @@
   "common": {
     "prompt": "A small robot studying artificial intelligence in a university classroom, simple illustration",
     "negative_prompt": "blurry, low quality, distorted",
-    "seed": 42
+    "seed": 42,
+    "width": 1024,
+    "height": 1024
   },
 
   "models": {
     "sd15": {
       "model_id": "stable-diffusion-v1-5/stable-diffusion-v1-5",
-      "width": 512,
-      "height": 512,
+      "width": 1024,
+      "height": 1024,
       "num_inference_steps": 20,
       "guidance_scale": 7.5,
 
@@ -21,7 +23,97 @@
       "cpu_dtype": "float32",
       "disable_safety_checker": true,
       "enable_attention_slicing_on_mps": true,
+      "vae_fp32_override": true,
+      "_note": "vae_fp32_override は 1024 生成時の fp16 VAE NaN 対策。SD1.5 は 512 訓練のため 1024 では構図破綻あり (比較用に敢えて)"
+    },
+
+    "sdxl_base": {
+      "model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 30,
+      "guidance_scale": 7.5,
+
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "vae_fp32_override": false,
+      "use_refiner": false,
+      "_note": "MPS では fp16/bf16 だと UNet または VAE で NaN が出るため fp32。fp16 variant をダウンロード後 fp32 にアップキャストする。"
+    },
+
+    "sdxl_turbo": {
+      "model_id": "stabilityai/sdxl-turbo",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 4,
+      "guidance_scale": 0.0,
+
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
       "vae_fp32_override": false
+    },
+
+    "flux_schnell": {
+      "model_id": "black-forest-labs/FLUX.1-schnell",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 4,
+      "guidance_scale": 0.0,
+      "max_sequence_length": 256,
+
+      "mps_dtype": "bfloat16",
+      "cuda_dtype": "bfloat16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "enable_model_cpu_offload": false,
+      "fallback": {
+        "width": 512,
+        "height": 512,
+        "num_inference_steps": 2
+      }
+    },
+
+    "sd35_medium": {
+      "model_id": "stabilityai/stable-diffusion-3.5-medium",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 28,
+      "guidance_scale": 4.5,
+
+      "mps_dtype": "bfloat16",
+      "cuda_dtype": "bfloat16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "enable_model_cpu_offload": false,
+      "fallback": {
+        "width": 512,
+        "height": 512,
+        "num_inference_steps": 16
+      }
+    },
+
+    "qwen_image": {
+      "model_id": "Qwen/Qwen-Image",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 30,
+      "guidance_scale": 4.0,
+      "true_cfg_scale": 4.0,
+
+      "mps_dtype": "bfloat16",
+      "cuda_dtype": "bfloat16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "enable_model_cpu_offload": false,
+      "fallback": {
+        "width": 512,
+        "height": 512,
+        "num_inference_steps": 20
+      }
     }
   }
 }

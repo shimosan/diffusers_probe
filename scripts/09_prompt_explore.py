@@ -54,6 +54,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from diffusers.models.attention_processor import Attention, AttnProcessor
 from PIL import Image
 
 from common import (
@@ -268,12 +269,17 @@ def select_representatives(unet) -> list[dict[str, Any]]:
 # Recording attention processor
 # ---------------------------------------------------------------------------
 
-class RecordingAttnProcessor:
-    """classic AttnProcessor 写経 + capture_flag が ON のとき attention_probs を保存。"""
+class RecordingAttnProcessor(AttnProcessor):
+    """classic AttnProcessor 写経 + capture_flag が ON のとき attention_probs を保存。
+
+    Attention.processor の型注釈が AttnProcessor を要求するので nominal に継承する
+    (Diffusers 同梱の Processor 群と同じパターン)。 __call__ は完全に上書きしており、
+    super().__call__() は呼ばない。"""
 
     def __init__(self, name: str, info: dict[str, Any],
                  capture_flag: dict[str, bool],
                  captured: list[dict[str, Any]]):
+        super().__init__()
         self.name = name
         self.info = info
         self.capture_flag = capture_flag
@@ -281,6 +287,11 @@ class RecordingAttnProcessor:
 
     def __call__(self, attn, hidden_states, encoder_hidden_states=None,
                  attention_mask=None, temb=None, *args, **kwargs):
+        # SD1.5 / SDXL の通常 self/cross-attention では to_k / to_v / to_out は必ず存在する
+        # (Diffusers の Attention クラスは joint attention 等を見越して Optional にしているだけ)。
+        # Pyright 用に nominal な narrowing を入れる。
+        assert attn.to_k is not None and attn.to_v is not None and attn.to_out is not None
+
         residual = hidden_states
         input_ndim = hidden_states.ndim
         if input_ndim == 4:
@@ -289,7 +300,9 @@ class RecordingAttnProcessor:
         batch_size, sequence_length, _ = (
             hidden_states.shape if encoder_hidden_states is None else encoder_hidden_states.shape
         )
-        attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size)
+        # prepare_attention_mask の型注釈は torch.Tensor 必須だが、実装は None も受けて None を返す。
+        # ここでは attention_mask=None で呼ばれる通常パスを許容したいので Pyright を抑制。
+        attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size)  # pyright: ignore[reportArgumentType]
         if attn.group_norm is not None:
             hidden_states = attn.group_norm(hidden_states.transpose(1, 2)).transpose(1, 2)
         query = attn.to_q(hidden_states)
@@ -331,7 +344,6 @@ def install_recording_processors(unet, selected: list[dict[str, Any]],
                                  capture_flag: dict[str, bool],
                                  captured: list[dict[str, Any]]) -> dict[str, Any]:
     """選択 module だけ RecordingAttnProcessor に差し替え。残りは SDPA のまま温存。"""
-    from diffusers.models.attention_processor import Attention
     selected_names = {r["name"] for r in selected}
     originals: dict[str, Any] = {}
     for name, mod in unet.named_modules():
@@ -343,7 +355,6 @@ def install_recording_processors(unet, selected: list[dict[str, Any]],
 
 
 def restore_processors(unet, originals: dict[str, Any]) -> None:
-    from diffusers.models.attention_processor import Attention
     for name, mod in unet.named_modules():
         if isinstance(mod, Attention) and name in originals:
             mod.processor = originals[name]
@@ -515,16 +526,9 @@ def run_one_seed(pipe, device: str, dtype: torch.dtype,
     # トラジェクトリ grid
     plt = _get_plt()
     try:
-        ordered = sorted(decoded_imgs.keys()) + ["final"]
-        imgs: list[Image.Image] = []
-        labels: list[str] = []
-        for k in ordered:
-            if k == "final":
-                imgs.append(final_img)
-                labels.append("final")
-            else:
-                imgs.append(decoded_imgs[k])
-                labels.append(f"i={k}")
+        sorted_steps: list[int] = sorted(decoded_imgs.keys())
+        imgs: list[Image.Image] = [decoded_imgs[k] for k in sorted_steps] + [final_img]
+        labels: list[str] = [f"i={k}" for k in sorted_steps] + ["final"]
         n = len(imgs)
         cols = min(6, n)
         rows = math.ceil(n / cols)
@@ -686,7 +690,7 @@ def run_one_seed(pipe, device: str, dtype: torch.dtype,
                 if a.max() > a.min():
                     a = (a - a.min()) / (a.max() - a.min())
                 heat_img = Image.fromarray((a * 255).astype(np.uint8)).resize(
-                    (W_img, H_img), Image.BILINEAR)
+                    (W_img, H_img), Image.Resampling.BILINEAR)
                 fig, ax = plt.subplots(figsize=(3.6, 3.6))
                 ax.imshow(final_img)
                 ax.imshow(np.asarray(heat_img), cmap="inferno", alpha=0.45)
@@ -879,7 +883,9 @@ def main() -> int:
     # pipeline load
     log("[load] StableDiffusionXLPipeline ...")
     try:
-        from diffusers import StableDiffusionXLPipeline
+        # diffusers は _LazyModule 経由で公開しているので Pyright の
+        # reportPrivateImportUsage が誤検知する。実行時の public API はこの形が正。
+        from diffusers import StableDiffusionXLPipeline  # pyright: ignore[reportPrivateImportUsage]
         t0 = time.perf_counter()
         pipe = StableDiffusionXLPipeline.from_pretrained(
             model_id, torch_dtype=dtype, use_safetensors=True,

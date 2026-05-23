@@ -19,6 +19,19 @@ Scripts:
 
 このリポジトリ ([diffusers_probe](../README.md)) は、Hugging Face Diffusers で **画像生成モデルの内部を観察する** ことが最終目的です。最初のステップとして、**主要 6 モデルを Mac (M4 Max, **MPS** = Metal Performance Shaders、Apple Silicon の GPU バックエンド) で実際に動かしてみて、どれが講義デモに使えるか**を見極めるのが本ドキュメントの内容です。
 
+本資料で扱う 6 モデルを以下に一覧する (詳細比較は Chapter 11、技術解説は Chapter 16):
+
+| モデル | HF model card | 公開時期 | 系統 / 主な手法 |
+|---|---|---|---|
+| Stable Diffusion 1.5 | [stable-diffusion-v1-5/stable-diffusion-v1-5](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5) | 2022-10 | UNet + DDPM, CLIP-L, 512×512 で訓練 |
+| SDXL Base 1.0 | [stabilityai/stable-diffusion-xl-base-1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0) | 2023-07 | 大型 UNet + DDPM, CLIP-L + OpenCLIP-G, 1024×1024 native |
+| SDXL Turbo | [stabilityai/sdxl-turbo](https://huggingface.co/stabilityai/sdxl-turbo) | 2023-11 | SDXL を ADD で蒸留、1-4 step |
+| FLUX.1-schnell | [black-forest-labs/FLUX.1-schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell) | 2024-08 | MMDiT + Rectified Flow、12B、LADD で 1-4 step |
+| SD3.5 Medium | [stabilityai/stable-diffusion-3.5-medium](https://huggingface.co/stabilityai/stable-diffusion-3.5-medium) | 2024-10 | MMDiT-X + Rectified Flow、2.5B |
+| Qwen-Image | [Qwen/Qwen-Image](https://huggingface.co/Qwen/Qwen-Image) | 2025-08 | MMDiT / flow-matching 系、20B、Qwen2.5-VL |
+
+各 script では上記モデルを順次扱う:
+
 | script | モデル | 役割 |
 |---|---|---|
 | 00 | (なし) | 環境チェック |
@@ -235,7 +248,7 @@ def pick_device_and_dtype():
 
 ### 背景: SDXL とは
 
-**SDXL = Stable Diffusion XL**。Stability AI が 2023 年に公開した、SD1.5 の正統な後継。UNet を **SD1.5 の約 3 倍に大型化** (約 **2.6B** parameters)、text encoder を 2 本構成 (**CLIP ViT-L + OpenCLIP ViT-bigG**、計 **817M** parameters) にし、**ネイティブ 1024×1024** で訓練 ([Podell et al. 2023](#podell-2023))。プロンプト追随性と画質が大きく向上。
+**SDXL = Stable Diffusion XL**。Stability AI が 2023-07 に公開した、SD1.5 の正統な後継。UNet を **SD1.5 の約 3 倍に大型化** (約 **2.6B** parameters)、text encoder を 2 本構成 (**CLIP ViT-L + OpenCLIP ViT-bigG**、計 **817M** parameters) にし、**ネイティブ 1024×1024** で訓練 ([Podell et al. 2023](#podell-2023))。プロンプト追随性と画質が大きく向上。
 
 ### 今回の MPS 環境で fp16 / bf16 を試した結果
 
@@ -316,7 +329,7 @@ def pick_device_and_dtype():
 
 ### 背景: FLUX と Rectified Flow
 
-Black Forest Labs (Stable Diffusion 原作者陣) が 2024 年に公開した、**12B パラメータの MMDiT = Multi-Modal Diffusion Transformer** (text token と image token を一つの sequence にして self-attention で処理する transformer、UNet の置き換え)。SDXL とは別系統で、**Rectified Flow** (Liu+ 2022、ノイズとデータを直線補間する flow matching 手法) を採用。`schnell` はその 4-step distilled 版で、公式 model card によれば **latent adversarial diffusion distillation (LADD)** で 1-4 step 生成を可能にしている ([BFL model card](#flux-schnell-card))。Apache 2.0 ライセンスだが HF gated — 規約承認 + `hf auth login` が必要。
+Black Forest Labs (Stable Diffusion 原作者陣) が 2024-08 に公開した、**12B パラメータの MMDiT = Multi-Modal Diffusion Transformer** (text token と image token を一つの sequence にして self-attention で処理する transformer、UNet の置き換え)。SDXL とは別系統で、**Rectified Flow** (Liu+ 2022、ノイズとデータを直線補間する flow matching 手法) を採用。`schnell` はその 4-step distilled 版で、公式 model card によれば **latent adversarial diffusion distillation (LADD)** で 1-4 step 生成を可能にしている ([BFL model card](#flux-schnell-card))。Apache 2.0 ライセンスだが HF gated — 規約承認 + `hf auth login` が必要。
 
 ### 実装の要点
 
@@ -356,7 +369,7 @@ Black Forest Labs (Stable Diffusion 原作者陣) が 2024 年に公開した、
 
 ### 背景: SD3 ファミリ
 
-Stability AI が FLUX と同じ MMDiT アーキテクチャを採用して 2024 年に出した次世代モデル。`Medium` は SD3.5 の中位版 (~2.5B 程度)。**HF gated** で `hf auth login` が必要。FLUX と SDXL のいいとこ取りを狙った設計。
+Stability AI が FLUX と同じ MMDiT アーキテクチャを採用して 2024-10 に出した次世代モデル。`Medium` は SD3.5 の中位版 (~2.5B 程度)。**HF gated** で `hf auth login` が必要。FLUX と SDXL のいいとこ取りを狙った設計。
 
 ### 実装の要点
 
@@ -394,7 +407,7 @@ Stability AI が FLUX と同じ MMDiT アーキテクチャを採用して 2024 
 
 ### 背景: Qwen-Image とは
 
-Alibaba が **2025-08-04** に weights を公開した **20B MMDiT image foundation model** (Apache 2.0、非 gated) ([Qwen-Image GitHub](#qwen-image-github))。技術レポートは翌日 2025-08-05 GitHub アナウンス ([Wu et al. 2025](#wu-2025))。Qwen2.5-VL と VAE encoder から入力表現を得て MMDiT で生成する構成。**テキスト描画能力**を強く強化しているのが特徴 (中国語・英語の文字を絵の中にきれいに描ける)。MPS で動かす場合の挙動は今回が初めての検証。
+Alibaba が **2025-08** に公開した **20B MMDiT image foundation model** (Apache 2.0、非 gated) ([Qwen-Image GitHub](#qwen-image-github))。技術レポート ([Wu et al. 2025](#wu-2025)) も同月公開。Qwen2.5-VL と VAE encoder から入力表現を得て MMDiT で生成する構成。**テキスト描画能力**を強く強化しているのが特徴 (中国語・英語の文字を絵の中にきれいに描ける)。MPS で動かす場合の挙動は今回が初めての検証。
 
 ### 実装の要点
 

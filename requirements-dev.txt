@@ -28,6 +28,7 @@ ipython==9.13.0
 ipython_pygments_lexers==1.1.1
 jedi==0.20.0
 Jinja2==3.1.6
+joblib==1.5.3
 jupyter_client==8.8.0
 jupyter_core==5.9.1
 kiwisolver==1.5.0
@@ -59,11 +60,14 @@ regex==2026.5.9
 requests==2.34.2
 rich==15.0.0
 safetensors==0.8.0rc0
+scikit-learn==1.8.0
+scipy==1.17.1
 setuptools==81.0.0
 shellingham==1.5.4
 six==1.17.0
 stack-data==0.6.3
 sympy==1.14.0
+threadpoolctl==3.6.0
 tokenizers==0.22.2
 torch==2.12.0
 torchaudio==2.11.0

@@ -1,0 +1,12 @@
+{
+  "slug": "wizard_and_dragon",
+  "prompt": "a wizard and a dragon facing each other on a cliff, epic fantasy painting, sunset",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, text",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["wizard", "dragon", "facing", "cliff", "sunset"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 B2: 異種 2 noun (wizard/dragon) で大きさ・形態が大きく違う → attention の差別化が見える期待"
+}

@@ -1,0 +1,12 @@
+{
+  "slug": "rabbit_and_turtle",
+  "prompt": "a white rabbit and a green turtle on a grass field, storybook illustration, soft colors",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, text",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["rabbit", "turtle", "grass", "field", "storybook"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 B4: 童話モチーフ (rabbit/turtle)、絵本調。色対比 (白・緑) で attention 分離期待。"
+}

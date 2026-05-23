@@ -1,0 +1,12 @@
+{
+  "slug": "owl_book_library",
+  "prompt": "a wise owl reading a book in an old library, warm candlelight, vintage atmosphere",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, text, error",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["owl", "reading", "book", "library", "candlelight"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 A4: 単 noun + 抽象 verb (reading) + 関係 noun (book)。動詞-目的語関係の attention 局在性。"
+}

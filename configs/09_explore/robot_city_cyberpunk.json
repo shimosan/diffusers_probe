@@ -1,0 +1,12 @@
+{
+  "slug": "robot_city_cyberpunk",
+  "prompt": "a robot standing in a neon cyberpunk city street, rain reflections, futuristic atmosphere",
+  "negative_prompt": "blurry, low quality, deformed, text, multiple robots",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["robot", "standing", "neon", "cyberpunk", "city", "rain"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 D4: スタイル = cyberpunk。光・反射・色情報過剰でも attention が安定するか"
+}

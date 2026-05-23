@@ -1,0 +1,12 @@
+{
+  "slug": "girl_dog_pencil_sketch",
+  "prompt": "a girl walking her dog on a path, pencil sketch, monochrome, hatching lines",
+  "negative_prompt": "color, painting, blurry, low quality, deformed",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["girl", "dog", "walking", "pencil", "sketch"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 D1: スタイル = pencil sketch。線画 style の attention 挙動を観察"
+}

@@ -1,0 +1,12 @@
+{
+  "slug": "samurai_sword_bamboo",
+  "prompt": "a samurai swinging a sword in a bamboo forest, dramatic motion, cinematic light",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, extra limbs",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["samurai", "swinging", "sword", "bamboo", "forest"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 C2: 動詞 (swinging) + 道具 (sword) + 環境 (bamboo forest)。動作・道具の attention 分離"
+}

@@ -1,0 +1,12 @@
+{
+  "slug": "dog_minimal",
+  "prompt": "a dog",
+  "negative_prompt": "",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["dog"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 E2: 極小 prompt (1 word)。attention が dog 単一 token で完全に dog の場所に集中するか"
+}

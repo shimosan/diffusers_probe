@@ -1,0 +1,12 @@
+{
+  "slug": "_smoke_test",
+  "prompt": "dog and cat, walking, bloom, high quality",
+  "negative_prompt": "blurry, low quality",
+  "seeds": [123],
+  "size": [512, 512],
+  "num_inference_steps": 8,
+  "guidance_scale": 7.5,
+  "target_tokens": ["dog", "cat", "walking", "bloom"],
+  "capture_step_fractions": [0.5],
+  "_note": "smoke test 用最小 config (1 seed / 512 / 8 step / 1 capture step)。動作確認だけ。"
+}

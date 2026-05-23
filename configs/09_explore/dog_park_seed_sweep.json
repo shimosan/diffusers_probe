@@ -1,0 +1,12 @@
+{
+  "slug": "dog_park_seed_sweep",
+  "prompt": "a golden retriever running through a sunny park, green grass, blue sky",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, multiple dogs, close up",
+  "seeds": [1, 7, 42, 99, 256],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["retriever", "running", "park", "grass", "sky"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 E1: dog_park_running と同 prompt を 5 seed で振る。再現性 / attention の安定性を観察"
+}

@@ -1,0 +1,25 @@
+{
+  "slug": "my_experiment_slug",
+  "prompt": "your positive prompt here",
+  "negative_prompt": "bad anatomy, blurry, low quality",
+  "seeds": [42],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["主要", "単語", "を", "ここに", "並べる"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "blend_with": null,
+  "_note": "コピペ用テンプレート。blend_with を使う場合は dog_cat_x_girl_boy_blend.json を参照。target_tokens は prompt に含まれる単語を CLIP-L BPE 上で検出 (' word' と 'word' の両方を試す)。",
+  "_fields": {
+    "slug": "出力 dir 名 (省略時はファイル名 stem)",
+    "prompt": "必須。positive prompt",
+    "negative_prompt": "default 空文字",
+    "seeds": "default [42]。複数指定で seed 振り",
+    "size": "default [1024, 1024]",
+    "num_inference_steps": "default 20 (探索向け)",
+    "guidance_scale": "default 7.5",
+    "target_tokens": "heatmap の対象単語。prompt に含まれない単語は警告のみ",
+    "capture_step_fractions": "default [0.17, 0.5, 0.83] (step 数に対する比率)",
+    "blend_with": "optional. {prompt, ratio, negative_same, seed} を含む dict"
+  }
+}

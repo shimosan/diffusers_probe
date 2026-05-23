@@ -1,0 +1,12 @@
+{
+  "slug": "cat_dog_pixel_art",
+  "prompt": "a cat and a dog in a garden, pixel art, 8-bit retro game style, vibrant colors",
+  "negative_prompt": "realistic, photo, blurry, low quality, deformed",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["cat", "dog", "garden", "pixel", "retro"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 D2: スタイル = pixel art。粗い粒子の絵で attention map がどう変わるか観察"
+}

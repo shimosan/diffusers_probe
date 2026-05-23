@@ -1,0 +1,12 @@
+{
+  "slug": "two_cats_duplicate",
+  "prompt": "two cats playing together on a wooden floor, one black cat and one white cat, indoor photo",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, three cats",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["cats", "playing", "black", "white", "floor"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 E4: 重複 noun (cats 複数形 + black/white で色分け)。attention が 2 個体に分かれるか"
+}

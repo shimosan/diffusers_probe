@@ -1,0 +1,12 @@
+{
+  "slug": "robot_classroom",
+  "prompt": "A small robot studying artificial intelligence in a university classroom, simple illustration",
+  "negative_prompt": "bad anatomy, bad hands, text, error, blurry, low quality, distorted",
+  "seeds": [42, 123],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["robot", "studying", "artificial", "intelligence", "university", "classroom", "illustration"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "08 で使用していた default prompt。同じ条件で再現できることの確認用。"
+}

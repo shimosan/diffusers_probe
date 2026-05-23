@@ -1,0 +1,18 @@
+{
+  "slug": "dog_cat_x_girl_boy_blend",
+  "prompt": "dog and cat, walking, bloom, high quality, very high resolution, colorful refraction, lens flare",
+  "negative_prompt": "bad anatomy, bad hands, text, error, missing fingers, extra digit, extra tail, fewer digits, multiple legs, malformation, close up",
+  "seeds": [234],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["dog", "cat", "girl", "boy", "mountain", "walking"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "blend_with": {
+    "prompt": "girl and boy, mountain, high quality",
+    "ratio": 0.5,
+    "negative_same": true,
+    "seed": 234
+  },
+  "_note": "3 年前 test7/test8 の embedding 中点合成 (50%+50%) を再現。seed=234 は当時の値。target_tokens に両 prompt の主要 noun を入れている (片方は片 prompt に出ない)。"
+}

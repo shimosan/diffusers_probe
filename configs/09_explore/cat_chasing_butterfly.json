@@ -1,0 +1,12 @@
+{
+  "slug": "cat_chasing_butterfly",
+  "prompt": "a black cat chasing a yellow butterfly in a flower meadow, bright afternoon, photo realistic",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["cat", "chasing", "butterfly", "meadow"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 C1: 動詞 (chasing) + 動作主 (cat) + 動作対象 (butterfly)。attention 関係を観察。"
+}

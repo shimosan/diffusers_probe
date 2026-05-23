@@ -1,0 +1,12 @@
+{
+  "slug": "dog_park_running",
+  "prompt": "a golden retriever running through a sunny park, green grass, blue sky",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, multiple dogs, close up",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["retriever", "running", "park", "grass", "sky"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 A2: 単 noun + 動詞 (running)。動詞主導の動的シーン。"
+}

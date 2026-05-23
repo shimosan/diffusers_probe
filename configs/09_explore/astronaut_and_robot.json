@@ -1,0 +1,12 @@
+{
+  "slug": "astronaut_and_robot",
+  "prompt": "an astronaut and a robot standing together on the moon surface, earth in background, cinematic",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, multiple astronauts",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["astronaut", "robot", "standing", "moon", "earth"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 B3: 2 人型 noun (astronaut/robot) で類似形態。attention 分離の難易度高めテスト。"
+}

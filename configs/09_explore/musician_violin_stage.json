@@ -1,0 +1,12 @@
+{
+  "slug": "musician_violin_stage",
+  "prompt": "a young musician playing a violin on a concert stage, spotlight, classical performance",
+  "negative_prompt": "bad anatomy, blurry, low quality, deformed, extra fingers",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["musician", "playing", "violin", "stage", "spotlight"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 C4: 動詞 (playing) + 道具 (violin) + 環境 (stage)。道具と人物の attention 関係"
+}

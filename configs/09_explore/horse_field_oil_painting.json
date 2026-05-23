@@ -1,0 +1,12 @@
+{
+  "slug": "horse_field_oil_painting",
+  "prompt": "a brown horse running across a golden wheat field, oil painting, impressionist style, warm light",
+  "negative_prompt": "photo, realistic, blurry, low quality, deformed",
+  "seeds": [42, 99],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["horse", "running", "wheat", "field", "oil", "impressionist"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "Phase 2 D3: スタイル = oil painting (impressionist)。古典絵画調"
+}

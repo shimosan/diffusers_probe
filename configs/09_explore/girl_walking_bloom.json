@@ -1,0 +1,12 @@
+{
+  "slug": "girl_walking_bloom",
+  "prompt": "girl, walking, bloom, high quality, very high resolution, colorful refraction, lens flare",
+  "negative_prompt": "bad anatomy, bad hands, text, error, missing fingers, extra digit, extra tail, fewer digits, multiple legs, malformation, close up",
+  "seeds": [123, 234],
+  "size": [1024, 1024],
+  "num_inference_steps": 20,
+  "guidance_scale": 7.5,
+  "target_tokens": ["girl", "walking", "bloom", "flare", "refraction"],
+  "capture_step_fractions": [0.17, 0.5, 0.83],
+  "_note": "3 年前 test3 の 2 つ目 prompt (dog_cat から動物を girl に置換)。"
+}

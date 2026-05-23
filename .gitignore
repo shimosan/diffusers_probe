@@ -11,9 +11,17 @@ env/
 # Runtime outputs
 outputs/
 runs/
-logs/
 cache/
 tmp/
+
+# Knowledge / external archives (gitignored permanent)
+notes/
+inbox/
+
+# 廃止された慣習 dir (誤復活防止)
+logs/
+configs/
+runners/
 
 # Sandbox notebooks (free to modify, not tracked)
 sandbox/

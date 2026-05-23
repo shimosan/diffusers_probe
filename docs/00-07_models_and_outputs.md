@@ -602,3 +602,484 @@ python scripts/04_sdxl_turbo_generate.py
 - [docs/images/flux_schnell_generate.png](images/flux_schnell_generate.png)
 - [docs/images/sd35_medium_generate.png](images/sd35_medium_generate.png)
 - [docs/images/qwen_image_generate.png](images/qwen_image_generate.png)
+
+---
+
+## 16. 付録 — DDPM と Rectified Flow の手法詳細
+
+本ドキュメントで扱った 6 モデルは、その内部で次の 2 つの生成手法のいずれかを使っている (11-3 表参照):
+
+- **DDPM 系** (SD1.5, SDXL Base, SDXL Turbo): 拡散モデル
+- **Rectified Flow 系** (FLUX.1-schnell, SD3.5 Medium, Qwen-Image): flow matching
+
+両者は「同じ見た目 (ノイズ → 反復で画像)」だが、**訓練データの作り方も、損失も、推論の数式も別**である。本付録では両者を同じ粒度で並べ、数式と実装手順の両面から比較する。
+
+### 16-A. DDPM (Denoising Diffusion Probabilistic Models)
+
+#### A.1 Forward 過程の定義
+
+訓練データ x_0 にノイズを段階的に加える **Markov chain**:
+
+$$
+q(x_t | x_{t-1}) = \mathcal{N}\big(x_t;\ \sqrt{1-\beta_t}\, x_{t-1},\ \beta_t I\big)
+\quad (t = 1, 2, \ldots, T)
+$$
+
+ここで $\beta_t \in (0, 1)$ は事前定義された **noise schedule** (linear, cosine 等)。$T = 1000$ が典型。
+
+Gaussian の合成性から、**任意の t における x_t の閉形式**が導ける:
+
+$$
+q(x_t | x_0) = \mathcal{N}\big(x_t;\ \sqrt{\bar{\alpha}_t}\, x_0,\ (1-\bar{\alpha}_t) I\big),
+\qquad \alpha_t = 1-\beta_t,\quad \bar{\alpha}_t = \prod_{s=1}^t \alpha_s
+$$
+
+つまり「Markov chain を t 回まわした結果」と同じ分布が、$x_0$ と単一のガウスノイズ $\varepsilon \sim \mathcal{N}(0, I)$ から **1 行で計算できる**:
+
+$$
+x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1-\bar{\alpha}_t}\, \varepsilon
+$$
+
+#### A.2 訓練データ構成 — 単一時刻 t を独立にサンプリング
+
+実装は **閉形式 1 行で x_t を直接生成**する (漸化式ループは回さない):
+
+```python
+for x_0 in dataloader:                            # 各 minibatch
+    t  = randint(1, T)                            # 各サンプル独立に一様 t
+    ε  = randn_like(x_0)                          # ガウスノイズ
+    x_t = sqrt(α̅[t]) * x_0 + sqrt(1 - α̅[t]) * ε  # 閉形式
+    ε_pred = model(x_t, t, condition)             # 1 forward
+    loss   = mse(ε_pred, ε)                       # 1 backward
+```
+
+訓練データは **(x_0, t, ε, x_t) の 1 個 tuple**。隣接時刻 $x_{t-1}, x_{t+1}$ は要らない。
+
+#### A.3 損失 — 変分下限の項別分解
+
+対数尤度の **変分下限 (ELBO)** は次のように T 個の項に分解できる (Ho 2020 Eq.5):
+
+$$
+L_{\text{ELBO}} = \underbrace{L_T}_{\text{prior}} + \sum_{t=2}^{T} \underbrace{D_{KL}\big[q(x_{t-1}|x_t, x_0)\ \|\ p_\theta(x_{t-1}|x_t)\big]}_{L_{t-1}} + \underbrace{L_0}_{\text{reconstruction}}
+$$
+
+ここで $q(x_{t-1} | x_t, x_0)$ は **閉形式の Gaussian** (Bayes でちゃんと計算できる、Ho 2020 Eq.6-7):
+
+$$
+q(x_{t-1} | x_t, x_0) = \mathcal{N}(x_{t-1};\ \tilde{\mu}_t(x_t, x_0),\ \tilde{\beta}_t I)
+$$
+
+KL 項を整理して reparameterize すると、**各 t の項が独立な MSE 損失** に落ちる (Ho 2020 Eq.14):
+
+$$
+L_{\text{simple}} = \mathbb{E}_{x_0,\ t,\ \varepsilon}\Big\| \varepsilon - \varepsilon_\theta(x_t,\ t) \Big\|^2
+$$
+
+→ **「単時刻 t での noise prediction の MSE」を全 t について最小化するだけ**。隣接時刻の相関は陽に学ばない (forward 過程の Markov 構造が数学的に保証してくれる)。
+
+#### A.4 推論 (sampling) — DDPM 流 (stochastic)
+
+訓練済モデル $\varepsilon_\theta$ を使って $x_T \to x_{T-1} \to \cdots \to x_0$ と段階的に逆過程を進める。各 step:
+
+1. **ノイズ予測**:
+   $$
+   \hat{\varepsilon}_t = \varepsilon_\theta(x_t, t)
+   $$
+2. **逆過程 Gaussian の平均**:
+   $$
+   \mu_\theta(x_t, t) = \frac{1}{\sqrt{\alpha_t}}\left( x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\, \hat{\varepsilon}_t\right)
+   $$
+   (Ho 2020 Eq.11)
+3. **確率的サンプリング**:
+   $$
+   x_{t-1} = \mu_\theta(x_t, t) + \sigma_t \cdot z,\quad z \sim \mathcal{N}(0, I)
+   $$
+   ($t = 1$ では $z = 0$、すなわち最後の step は決定論的)
+
+これを $t = T$ から $t = 1$ まで T 回繰り返す。$\sigma_t^2$ は $\beta_t$ または $\tilde{\beta}_t$ を事前固定する流派が一般的。
+
+#### A.5 DDIM サンプリング — 決定論的 + step skip
+
+[Song 2021 (DDIM)](https://arxiv.org/abs/2010.02502) は同じ $\varepsilon_\theta$ を別の更新式で使う。中間表現として **「現時点の x_t から推定される x_0」** を陽に計算する:
+
+1. **ノイズ予測**: $\hat{\varepsilon}_t = \varepsilon_\theta(x_t, t)$
+2. **x_0 推定**:
+   $$
+   \hat{x}_0(x_t, t) = \frac{x_t - \sqrt{1-\bar{\alpha}_t}\, \hat{\varepsilon}_t}{\sqrt{\bar{\alpha}_t}}
+   $$
+3. **x_{t-1} の決定論的更新** ($\eta = 0$ の場合):
+   $$
+   x_{t-1} = \sqrt{\bar{\alpha}_{t-1}}\, \hat{x}_0\ +\ \sqrt{1-\bar{\alpha}_{t-1}}\, \hat{\varepsilon}_t
+   $$
+
+DDIM の利点:
+- **決定論的**: stochastic 項なし → 同 seed で完全再現
+- **任意の t subset で動く**: forward 過程は閉形式なので、$\{T, T-10, T-20, \ldots, 10, 0\}$ のような飛び飛び schedule でも OK。これにより 1000 step の訓練済モデルを 20-50 step で推論できる (5x-50x 高速化)
+
+中間量 $\hat{x}_0$ は最終出力ではなく「方向ベクトル」として使う。理屈の上では $\hat{x}_0$ を直接出力にもできるが、**t が大きい (ノイズが多い) 段階での $\hat{x}_0$ は極めて荒い**ので、各 step で再推定する multi-step が品質を担保する。
+
+#### A.6 同等な学習目標
+
+forward の閉形式 $x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1-\bar{\alpha}_t}\, \varepsilon$ から、以下は **互いに 1 対 1 で変換可能**:
+
+| 予測対象 | 表現 |
+|---|---|
+| noise prediction (標準) | $\hat{\varepsilon} = \varepsilon_\theta(x_t, t)$ |
+| $x_0$ prediction | $\hat{x}_0 = (x_t - \sqrt{1-\bar{\alpha}_t}\,\hat{\varepsilon}) / \sqrt{\bar{\alpha}_t}$ |
+| score prediction | $s_\theta(x_t, t) = -\hat{\varepsilon} / \sqrt{1-\bar{\alpha}_t}$ |
+| v-prediction (Salimans+ 2022) | $\hat{v} = \sqrt{\bar{\alpha}_t}\,\varepsilon - \sqrt{1-\bar{\alpha}_t}\,x_0$ |
+
+実装によって出力 parameterization が違うが、数学的には同じ。
+
+#### A.7 歴史的補足 — 「step ごとに undo を学習する」直感的アプローチとの対比
+
+**前置きの注意**: 本節で説明する「直感的アプローチ」は **DDPM ではない**。DDPM (Ho 2020) は閉形式 $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\varepsilon$ から単一時刻 $t$ で $\varepsilon$ を予測する MSE 損失で訓練する (A.2 - A.3 で説明済)。本節は、なぜそれより直感的に見えるアプローチが**実用上は使われない**のか、そして「直感に近い」原点の実装が何かを補足する。
+
+##### A.7.1 直感的アプローチ — 隣接時刻ペア $(x_t, x_{t-1})$ で学習
+
+概念的には、forward chain を実際に走らせ、隣接時刻のペアを使って「ひと step ずつ undo を学ぶ」のが最も自然:
+
+```python
+# 直感的アプローチ (実際の主流実装ではない、教材的説明)
+for x_0 in dataloader:
+    # 1. forward chain を Markov に実際に走らせて全状態を保存
+    x_states = [x_0]
+    for s in range(1, T+1):
+        ε_s = randn_like(x_0)
+        x_states.append(sqrt(1 - β[s]) * x_states[-1] + sqrt(β[s]) * ε_s)
+
+    # 2. ある t を選んで、x_t から x_{t-1} を予測する損失
+    t = randint(1, T)
+    x_t, x_t_prev = x_states[t], x_states[t-1]
+    x_prev_pred = model(x_t, t)                 # ← 「ひと step undo」を直接予測
+    loss = mse(x_prev_pred, x_t_prev)
+```
+
+利点: 数式上の対応が見えやすい。「Markov chain の各 step を逆に進める」関数を学習している。
+
+欠点 (実用上致命的):
+1. **計算コストが線形に増える**: 各 minibatch で T 回の forward chain simulation が必要 ($T = 1000$ なら 1000 倍重い)
+2. **訓練信号がノイジー**: 隣接時刻間の差分 $x_{t-1} - x_t \approx -\beta_t\,x_{t-1} + \sqrt{\beta_t}\varepsilon$ は小さく、信号がノイズに埋もれやすい
+3. **数学的に冗長**: forward の閉形式と Gaussian の合成性から、隣接ペアを陽に作らなくても同じ統計が得られる (= DDPM のトリック)
+
+##### A.7.2 Sohl-Dickstein 2015 — 拡散モデルの原点
+
+[Sohl-Dickstein et al. 2015](https://arxiv.org/abs/1503.03585) "Deep Unsupervised Learning using Nonequilibrium Thermodynamics" が現代の diffusion model の原典。骨子:
+
+- forward 過程は同じ Markov chain (Gaussian 加算)
+- **逆過程 $p_\theta(x_{t-1} | x_t)$ を Gaussian としてパラメータ化**:
+  $$
+  p_\theta(x_{t-1} | x_t) = \mathcal{N}(x_{t-1};\ \mu_\theta(x_t, t),\ \Sigma_\theta(x_t, t))
+  $$
+- $\mu_\theta$ と $\Sigma_\theta$ を**ニューラルネットで直接予測**
+- 変分下限を最大化 (DDPM と同じ ELBO)
+
+特徴: A.7.1 の「直感的アプローチ」に近い設計思想 (= 逆過程 step を直接学習する) だが、**実際には pair sampling は使わない**。代わりに、Bayes で導かれる閉形式の posterior $q(x_{t-1} | x_t, x_0)$ を「真の逆過程」として、それに matching する KL を最小化する。これにより、forward を実際に走らせる必要はなくなる (A.2 と同じ閉形式トリックを部分的に使う)。
+
+ただし当時の Sohl-Dickstein は:
+- $\mu_\theta$ と $\Sigma_\theta$ を**両方とも学習対象**にしていた → 訓練が不安定
+- ε の reparameterization は導出されていなかった
+- 画質は当時の VAE / GAN に届かず、長らく注目されなかった
+
+##### A.7.3 NCSN (Song & Ermon 2019) — score-based 流派
+
+[Song & Ermon 2019](https://arxiv.org/abs/1907.05600) "Generative Modeling by Estimating Gradients of the Data Distribution" の Noise Conditional Score Network (NCSN) は別系統:
+
+- データに各種ノイズレベル $\sigma$ を加える: $\tilde{x} = x_0 + \sigma\varepsilon$
+- **score** $\nabla_x \log p_\sigma(x)$ を学習 (denoising score matching、Vincent 2011 の理論を借用):
+  $$
+  L_{\text{DSM}}(\sigma) = \mathbb{E}_{x_0, \varepsilon}\left\| s_\theta(\tilde{x}, \sigma) - \frac{x_0 - \tilde{x}}{\sigma^2} \right\|^2
+  $$
+- 推論時は Langevin dynamics で score に従って更新
+
+NCSN は「各ノイズレベルで $x_0$ への勾配を学ぶ」という意味で、**「$\sigma$ レベルのノイズ除去」を直接学習している** (ペア sampling ではなく、$(x_0, \tilde{x})$ ペアを使う)。これは概念的に DDPM の noise prediction と等価 ($s_\theta = -\hat{\varepsilon}/\sigma$ で 1 対 1 変換可能、Song 2021 で統一が示された)。
+
+NCSN は画質で当時の GAN に並び、diffusion 系列が「使える生成モデル」と認知される転換点になった。
+
+##### A.7.4 DDPM (Ho 2020) の貢献
+
+DDPM が Sohl-Dickstein 2015 から進化させた点:
+
+1. **$\mu_\theta$ を $\varepsilon$ prediction に reparameterize** (Eq.11):
+   $$
+   \mu_\theta(x_t, t) = \frac{1}{\sqrt{\alpha_t}}\left(x_t - \frac{\beta_t}{\sqrt{1-\bar{\alpha}_t}}\hat{\varepsilon}\right)
+   $$
+   これにより「$\mu_\theta$ を直接予測」ではなく「$\varepsilon$ を予測してから $\mu_\theta$ を計算」に。
+2. **$\Sigma_\theta$ を固定** ($\beta_t$ または $\tilde{\beta}_t$ を採用、学習しない)。
+3. **変分下限の項を整理**して $L_{\text{simple}} = \mathbb{E}\|\varepsilon - \varepsilon_\theta(x_t, t)\|^2$ の単純な MSE に。係数は無視 (重み付けの一様化が経験的に良かった)。
+
+結果として、訓練が**シンプル・安定・高品質**になり、画像生成の SOTA を取った。
+
+##### A.7.5 まとめ — 4 つの流派の関係
+
+| 流派 | 何を予測するか | 訓練ペアの作り方 | 代表論文 |
+|---|---|---|---|
+| 直感的「pair undo」 | $x_{t-1}$ を直接予測 | forward chain を実際に走らせて $(x_t, x_{t-1})$ | (理論的、実装は不在) |
+| 拡散原点 | $\mu_\theta(x_t,t)$ と $\Sigma_\theta(x_t,t)$ | 閉形式 $x_t$、posterior の KL を minimize | Sohl-Dickstein 2015 |
+| Score matching | $\nabla_x \log p_\sigma(x)$ | 各 $\sigma$ で $(x_0, \tilde{x})$ | NCSN (Song & Ermon 2019) |
+| **DDPM (現代標準)** | $\varepsilon$ | 閉形式 $x_t$、単時刻 $t$ で MSE | **Ho 2020** |
+
+これら 4 つは数学的には等価 (A.6 の変換式で繋がる)、ただし**訓練の安定性・画質・実装の簡潔さで Ho 2020 (DDPM) が圧倒的に良かった**ため、以降のすべての拡散モデル実装 (SD1.5, SDXL 含む) は DDPM 流の noise prediction を基本に発展した。
+
+> **講義での使い方**: 「直感的には pair undo を学ぶのが自然だが、実用では $\varepsilon$ predict が圧勝した」という対比は、**「数学的に等価な定式化でも、parameterization の選択が深層学習の性能を大きく左右する」**という典型例として教材価値が高い (RNN の vanilla vs LSTM、ResNet の residual connection の話と同じ系譜)。
+
+---
+
+### 16-B. Rectified Flow / Flow Matching
+
+#### B.1 経路の定義 — 拡散ではなく直線補間
+
+DDPM とは異なり、Markov chain は使わない。データ点 $x_1$ とノイズ $\varepsilon$ を **独立に** ペアにして、両者を結ぶ直線が経路:
+
+$$
+x_t = (1-t)\, \varepsilon\ +\ t\, x_1,\qquad t \in [0, 1]
+$$
+
+慣習が DDPM と**逆向き**:
+- DDPM: $t=0$ がデータ、$t=T$ がノイズ
+- Flow: $t=0$ がノイズ、$t=1$ がデータ
+
+経路上の速度 (velocity) は **時刻に依らず一定**:
+
+$$
+\frac{dx_t}{dt} = x_1 - \varepsilon \quad (\text{const along the line})
+$$
+
+#### B.2 訓練データ構成
+
+```python
+for x_1 in dataloader:                            # 各 minibatch (データ画像)
+    ε  = randn_like(x_1)                          # ガウスノイズ (独立)
+    t  = uniform(0, 1)                            # SD3 では logit-normal
+    x_t = (1 - t) * ε  +  t * x_1                 # 直線補間
+    v_true = x_1 - ε                              # velocity (const)
+    v_pred = model(x_t, t, condition)             # 1 forward
+    loss   = mse(v_pred, v_true)                  # 1 backward
+```
+
+DDPM との対比:
+- DDPM: `x_t = √α̅·x_0 + √(1-α̅)·ε` (係数が schedule で非線形)
+- Flow: `x_t = (1-t)·ε + t·x_1` (係数が線形)
+- DDPM 予測対象: $\varepsilon$ (ノイズ)
+- Flow 予測対象: $v = x_1 - \varepsilon$ (velocity)
+
+#### B.3 損失
+
+シンプルな MSE:
+
+$$
+L_{\text{FM}} = \mathbb{E}_{x_1,\ \varepsilon,\ t}\Big\| v_\theta(x_t, t) - (x_1 - \varepsilon) \Big\|^2
+$$
+
+DDPM の変分下限のような複雑な導出は不要。「直線の傾きを予測する」だけ。
+
+時刻 $t$ のサンプリング分布は実用上は工夫の余地あり:
+- 一様 $t \sim \text{Uniform}(0, 1)$ が basic
+- SD3 は **logit-normal** を使う ($t$ の logit がガウスに従う): $t = \sigma(z),\ z \sim \mathcal{N}(0, 1)$。両端 ($t \approx 0,\ 1$) よりも中央 ($t \approx 0.5$) を重く学習する効果
+
+#### B.4 推論 (sampling) — ODE 積分
+
+$t = 0$ (ノイズ) から $t = 1$ (データ) へ ODE を Euler 積分:
+
+```python
+N = 4                                         # step 数 (schnell なら 4)
+dt = 1.0 / N
+x = randn(shape)                              # ノイズ (t=0)
+for i in range(N):
+    t = i * dt
+    v_pred = model(x, t, condition)
+    x = x + dt * v_pred                       # Euler 1 step
+# x は t=1 のデータ推定
+```
+
+高次積分法 (Heun, RK4) も使えるが、軌道が **直線に近い** (rectification 後) ので Euler でも十分。step 数を増やすより rectification ラウンドを増やす方が効果的。
+
+#### B.5 同等な学習目標 — $x_1$ / $\varepsilon$ prediction との変換
+
+forward の閉形式から、以下は **互いに 1 対 1 で変換可能**:
+
+| 予測対象 | 表現 |
+|---|---|
+| velocity prediction (標準) | $\hat{v} = v_\theta(x_t, t)$ |
+| $x_1$ prediction (DDIM の $\hat{x}_0$ に相当) | $\hat{x}_1 = x_t + (1-t)\,\hat{v}$ |
+| $\varepsilon$ prediction | $\hat{\varepsilon} = x_t - t\,\hat{v}$ |
+
+導出: $x_t = (1-t)\varepsilon + t\,x_1$ かつ $v = x_1 - \varepsilon$ より、
+- $x_t + (1-t)v = (1-t)\varepsilon + t\,x_1 + (1-t)(x_1 - \varepsilon) = x_1$
+- $x_t - t\,v = (1-t)\varepsilon + t\,x_1 - t(x_1 - \varepsilon) = \varepsilon$
+
+DDPM の $\hat{x}_0$ 中間量と完全に対応する $\hat{x}_1$ を Flow でも計算できる。サンプラーによっては $\hat{x}_1$ を陽に取り出して中間出力として使う実装もある (DDIM 流)。
+
+#### B.6 Rectification (反復直線化) — Liu 2022 の核心
+
+基本 Flow Matching の訓練は **独立ペア** $(\varepsilon_i, x_{1,i})$ を使うが、これだと:
+- 異なるペアの線分が画素空間で **交差**する
+- 交差点では真の velocity が一意でない (平均化されて曖昧になる)
+- 結果として学習した軌道が**曲がる** (= 直線でなくなる)
+
+これを改善する **reflow 手続き**:
+
+**第 1 ラウンド**:
+1. 独立ペア $(\varepsilon_i, x_{1,i})$ で $v_\theta^{(1)}$ を訓練
+2. $v_\theta^{(1)}$ を使ってノイズから生成: $\varepsilon_i \to \text{ODE} \to \hat{x}_{1,i}$
+
+**第 2 ラウンド**:
+3. 新しいペア $(\varepsilon_i, \hat{x}_{1,i})$ を **「学習した flow に沿うカップリング」** として保存
+4. このペアで再訓練 → $v_\theta^{(2)}$
+5. $v_\theta^{(2)}$ の軌道は線分が交差しにくい (= 直線化が進む)
+
+これを繰り返すと **"rectified" される**。SD3 / FLUX 系は実用上 1-2 ラウンドで打ち止め。
+
+理論的には、無限回 rectification を適用した極限が **最適輸送 (Optimal Transport)** の輸送マップに一致する (Liu 2022 の理論結果)。
+
+#### B.7 蒸留との関係
+
+Rectified Flow が「軌道を直線にする」のは、**少 step サンプリングの前段**として効く。直線化された flow なら Euler 法で 4-8 step でも品質が出る。
+
+ただし FLUX.1-schnell や SDXL Turbo のような **1-4 step 化** には、さらに別の蒸留 (ADD, step distillation) を上乗せする必要がある。Rectification は「軌道直線化」、distillation は「軌道を再現する生徒モデルの訓練」と役割が分離している。
+
+#### B.8 歴史的補足 — Flow Matching 系譜の中の Rectified Flow
+
+**前置きの整理**: 「Rectified Flow = Flow Matching」と総称されがちだが、**厳密には Flow Matching が広い枠組み、Rectified Flow はその特殊ケース**。本節で両者の関係と周辺手法を整理する。
+
+##### B.8.1 起源 — Continuous Normalizing Flow と "simulation-free" 訓練
+
+連続時間の生成モデル枠組みとして、まず **Continuous Normalizing Flow (CNF)** が存在する (Chen et al. 2018, "Neural ODEs"):
+
+$$
+\frac{dx}{dt} = v_\theta(x, t),\qquad x(0) \sim p_{\text{noise}},\quad x(1) \sim p_{\text{data}}
+$$
+
+ニューラル ODE で「ノイズ → データ」の変換を表現。理論的にきれいだが、**訓練が極めて重い**:
+- 最尤推定だと各 step で divergence $\nabla \cdot v_\theta$ を計算する必要 (computationally expensive)
+- ODE 全体を simulate しないと損失計算できない (毎 step が backprop 込みで重い)
+
+2017-2021 ごろは「理論はいいけど実用にならない」状態だった。
+
+##### B.8.2 2022-2023 — Simulation-Free な訓練法の同時発見
+
+ほぼ同時期 (2022 年 9 月〜10 月) に **3 つの独立論文**が、CNF を **simulation なし**で訓練する方法を提案:
+
+| 論文 | 用語 | 特徴 |
+|---|---|---|
+| [Liu, Gong, Liu 2022.09](https://arxiv.org/abs/2209.03003) | **Rectified Flow** | 直線補間 + reflow (反復直線化) を強調 |
+| [Albergo & Vanden-Eijnden 2022.09](https://arxiv.org/abs/2209.15571) | **Stochastic Interpolants** | より一般的な interpolant 族を扱う枠組み |
+| [Lipman, Chen, Ben-Hamu et al. 2022.10](https://arxiv.org/abs/2210.02747) | **Flow Matching** | 簡潔な定式化、画像生成での実用性を実証 |
+
+3 者は **数学的に大きく重なる**が、強調点と用語が違う。コミュニティでは:
+- **「Flow Matching」が枠組みの総称**として定着
+- **「Rectified Flow」は Liu et al. の特定の手法名**
+- **「Stochastic Interpolants」は Albergo らの理論寄りの拡張**
+
+として使い分けられる。
+
+##### B.8.3 Flow Matching 枠組みと Conditional Flow Matching
+
+Lipman 2023 の Flow Matching の核心アイデア:
+
+> マッチさせたい velocity 場 $u_t(x)$ (= 目標) があるなら、ニューラルネットを使って $\|v_\theta - u_t\|^2$ で MSE 学習すればよい
+
+ただし、$u_t(x)$ (= 真の marginal velocity) は直接計算できない (積分が必要)。Lipman の鍵となる発見:
+
+> **データ点 $x_1$ で条件付けた velocity $u_t(x | x_1)$ は閉形式で書ける**ことが多い (特に Gaussian path の場合)。条件付き目標で訓練しても、結果として無条件 marginal velocity が学習される (定理として証明)。
+
+これが **Conditional Flow Matching (CFM) loss**:
+
+$$
+L_{\text{CFM}} = \mathbb{E}_{t,\ x_1 \sim p_{\text{data}},\ x \sim p_t(x|x_1)}\Big\| v_\theta(x, t) - u_t(x | x_1) \Big\|^2
+$$
+
+「経路 (interpolant) をどう設計するか」が自由度として残る。代表的な変種:
+
+| 経路の選び方 | 名称 | 特徴 |
+|---|---|---|
+| 直線補間 $x_t = (1-t)\varepsilon + t\,x_1$ | **Rectified Flow** / I-CFM | 最も単純、reflow で更に直線化 |
+| Diffusion VP path ($\sqrt{\bar{\alpha}_t}\,x_1 + \sqrt{1-\bar{\alpha}_t}\,\varepsilon$) | **VP-CFM** | DDPM 流の曲線経路を FM 視点で再解釈 |
+| OT (Optimal Transport) 最適輸送経路 | **OT-CFM** | 理論上最も短いが計算が重い |
+| Minibatch OT pairing | **Multisample CFM** | 実用上の OT 近似 |
+
+**Rectified Flow は、CFM の中で「最も単純な直線 interpolant + reflow による直線化強化」を選んだ実装**、と位置付けられる。
+
+##### B.8.4 Optimal Transport (OT) との関係 — 理論的深さ
+
+Rectified Flow の reflow を無限回繰り返した極限は、**Optimal Transport (OT)** (最適輸送) の解に一致する (Liu 2022 の定理):
+
+> ノイズ分布 $p_0$ とデータ分布 $p_1$ の間の **L2 OT plan** は「直線輸送」になる。Reflow を繰り返すと、独立カップリングから始まって、徐々に OT plan に近づいていく。
+
+これは数学的に深い結果で、Flow Matching を **Optimal Transport の効率的近似** として位置付けることができる。実用上は 1-2 reflow で十分な直線化が得られるので、無限反復は不要。
+
+OT との接続は Albergo & Vanden-Eijnden の Stochastic Interpolants 系論文でより詳しく扱われている。
+
+##### B.8.5 周辺手法・派生 — 少 step 化への道
+
+Rectified Flow / Flow Matching 系の上に積み上げる形で、いくつかの強化版がある:
+
+| 手法 | 元論文 | 目的 | アプローチ |
+|---|---|---|---|
+| **InstaFlow** | [Liu et al. 2023.09](https://arxiv.org/abs/2309.06380) | 1-step 生成 | Rectified Flow を 2 回 reflow した上で 1-step distillation |
+| **PeRFlow** | [Yan et al. 2024.05](https://arxiv.org/abs/2405.07510) | 4-step 生成 | Piecewise Rectified Flow、軌道を区間ごとに直線化 |
+| **Consistency Models** | [Song et al. 2023.03](https://arxiv.org/abs/2303.01469) | 1-2 step 生成 | 「任意の $t$ から $x_1$ を 1 step で予測」を整合性損失で訓練 |
+
+これらは Rectified Flow / Flow Matching の上に「**軌道の特定の構造を陽に利用して step を減らす**」工夫を加える流派。FLUX.1-schnell の蒸留手法は詳細非公開だが、Latent Adversarial Diffusion Distillation (LADD) または類似手法とされる。
+
+##### B.8.6 SD3 / FLUX 実装での具体的選択
+
+[SD3 論文 (Esser et al. 2024)](https://arxiv.org/abs/2403.03206) は "Scaling **Rectified Flow** Transformers" とタイトルで明言し、以下を採用:
+
+- **経路**: linear (= Rectified Flow)
+- **訓練時の $t$ 分布**: logit-normal (両端より中央に重点)
+- **経路パラメータ化のいくつかを比較実験**して、最終的に "rectified flow + logit-normal sampling" を選択
+
+FLUX は SD3 と同じ著者陣 (Black Forest Labs = ex-Stability) なので、ほぼ同じ採用。`schnell` はさらに上に蒸留 (B.8.5 の InstaFlow / LADD 系) を載せて 1-4 step 化したもの。Qwen-Image も MMDiT + Rectified Flow をベースに、text encoder を VLM に置き換えてスケール (20B) させた変種、と位置付けられる。
+
+##### B.8.7 まとめ — 用語の対応関係
+
+| レベル | 用語 | 意味 |
+|---|---|---|
+| 最も広い枠組み | **Continuous Normalizing Flow (CNF)** | ニューラル ODE による生成モデル一般 |
+| 訓練法の枠組み | **Flow Matching (FM)** | CNF を simulation-free で訓練する一般的なレシピ |
+| 条件付き定式化 | **Conditional Flow Matching (CFM)** | $x_1$ で条件付けて閉形式 target を使う実用版 |
+| 経路の選択肢 | linear / VP / OT / Multisample / ... | CFM の中で経路をどう選ぶかの variant |
+| 具体的手法 | **Rectified Flow (Liu 2022)** | linear 経路 + reflow による直線化を含む特定の手法 |
+| 実装 sampler | `FlowMatchEulerDiscreteScheduler` | diffusers での RF/FM 系の Euler 法実装 |
+| 実モデル | SD3 / FLUX / Qwen-Image | Rectified Flow を採用した production model |
+
+「Flow Matching で生成しています」と聞いたら、それは多くの場合 **Rectified Flow** (= linear interpolant の CFM) のことを指している、と思って OK。厳密には FM の方が広い概念だが、実用ではほぼ同一視されている。
+
+> **講義での使い方**: A.7 と並べて見ると、**「2020 (DDPM 革命) → 2022-23 (Flow Matching 革命)」という 2 つの大きなパラダイム転換**が見える。両者とも「直接的な定式化 (= 隣接ペア learning / CNF 最尤) より、賢い reparameterization を選んだら劇的に良くなった」というメタな共通点がある。これは「**深層生成モデルの進展は、目的関数の発明より、目的関数の reparameterization の発明によって駆動される**」という現代生成モデル研究の特徴。
+
+---
+
+### 16-C. 両手法の対応関係 (まとめ表)
+
+| 概念 | DDPM | Rectified Flow |
+|---|---|---|
+| **データ慣習** | $x_0$ がデータ、$x_T$ がノイズ | $x_1$ がデータ、$x_0$ がノイズ (逆向き!) |
+| **時刻** | 離散 $t \in \{1, \ldots, T\}$ (典型 $T=1000$) | 連続 $t \in [0, 1]$ |
+| **Forward 過程** | Markov chain (Gaussian 加算) | 直線補間 (deterministic) |
+| **Forward 閉形式** | $x_t = \sqrt{\bar{\alpha}_t}\,x_0 + \sqrt{1-\bar{\alpha}_t}\,\varepsilon$ | $x_t = (1-t)\,\varepsilon + t\,x_1$ |
+| **訓練データ単位** | $(x_0, t, \varepsilon, x_t)$ | $(x_1, \varepsilon, t, x_t)$ |
+| **学習目標 (標準)** | $\hat{\varepsilon} = \varepsilon_\theta(x_t, t)$ | $\hat{v} = v_\theta(x_t, t)$ |
+| **学習目標 (DDIM/Flow 共通の中間量)** | $\hat{x}_0 = (x_t - \sqrt{1-\bar{\alpha}_t}\hat{\varepsilon})/\sqrt{\bar{\alpha}_t}$ | $\hat{x}_1 = x_t + (1-t)\hat{v}$ |
+| **訓練時 $t$ 分布** | $\text{Uniform}(\{1,\ldots,T\})$ | $\text{Uniform}(0,1)$ or logit-normal |
+| **損失導出** | 変分下限 (ELBO) を Eq.14 で reparameterize | 単純な MSE (理論導出不要) |
+| **サンプリング** | DDPM (stochastic) / DDIM (deterministic) | Euler / Heun / RK4 (ODE 積分) |
+| **典型 step 数** | DDPM: 1000、DDIM: 20-50 | RF (基本): 50、reflow 後: 4-8、蒸留後: 1-4 |
+| **直接 $x_0$ / $x_1$ ジャンプ** | 数式上可能、品質劣化激しい | 同様、品質劣化激しい |
+| **改良パスの主流** | より高速な ODE sampler (DDIM, DPM-Solver++) | reflow (軌道直線化) + distillation |
+| **代表モデル** | SD1.5, SDXL Base, SDXL Turbo | FLUX.1-schnell, SD3.5 Medium, Qwen-Image |
+
+---
+
+### 16-D. 講義での教える順序の提案
+
+学生に「2020 → 2024 で生成モデルが何を捨て、何を得たか」を見せる流れ:
+
+1. **DDPM (2020, 古典)**: ノイズ Markov 過程の逆向きを学習。理論的には変分下限の最適化、実装上は単時刻 $t$ の noise prediction MSE。
+2. **score-based の統一視点 (2021)**: DDPM, Langevin, SDE が同じ枠組みに乗ることが分かる (Song & Ermon)。
+3. **DDIM (2021)**: stochastic → deterministic、任意の $t$ subset で動かせる → **step skip 高速化**。中間量として $\hat{x}_0$ が現れる。
+4. **Flow Matching (2022-2023)**: 「もうちょっとシンプルに、ノイズとデータを直線で結ぼう」。変分下限の複雑な導出を捨て、単純な MSE で velocity を学習。
+5. **Rectified Flow (2022)**: 学習で得た flow に沿って再カップリング → さらに直線化 → 少 step サンプリングが現実的に。
+6. **Distillation (2023-2024)**: 教師の軌道を生徒モデルが少 step で再現 (ADD, step distillation)。**Turbo / schnell の正体**。
+
+この 6 段階で見ると、本ドキュメントの 7 モデルが時系列上で「どこに位置するか」が分かる。SDXL は (1)-(3) の延長、FLUX / SD3 は (4)-(5)、Turbo / schnell は (6) を上乗せ。Qwen-Image は (4)-(5) に + text encoder の VLM 化、という独自進化。

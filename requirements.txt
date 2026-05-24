@@ -1,0 +1,27 @@
+# diffusers_probe slim venv (~/.venvs/dfs2026) — 学生 notebook 用
+# scripts/exploration 用には別途 requirements-dev.txt (dev venv) を参照。
+#
+# 方針: direct dependencies だけ書く (transitive は pip が解決)。
+# 一発再現: python -m venv ~/.venvs/dfs2026 --prompt dfs2026 && pip install -r requirements.txt
+
+# Core: diffusion model 実行
+torch
+torchvision
+diffusers
+transformers
+accelerate
+huggingface_hub
+safetensors
+
+# 画像・配列
+pillow
+numpy
+matplotlib
+pandas
+
+# 08 / 09 系の clustering / 散布図用
+scikit-learn
+
+# Jupyter kernel + 進捗 widget (ipywidgets を入れないと tqdm.notebook が IProgress 警告を出す)
+ipykernel
+ipywidgets

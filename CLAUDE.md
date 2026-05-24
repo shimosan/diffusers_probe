@@ -135,12 +135,14 @@ git 管理対象と git 管理外 (gitignored) に分かれ、保存期間 (tier
 | `notes/` | × | T1 | 内部生成 永続 (md 中心の知見記録: handoff、observation、curated 実験記録) |
 | `runs/` | × | T2 | 凍結 archive (実験 1 セットの完全パッケージ: input config + 全 output) |
 | `outputs/` | × | T3 | 現用生成物 (script の生成先、curation 中の md、`run.log` 同梱) |
+| `slides/` | × | T1 | 講義スライド作成作業 (Marp source + custom theme + 生成 pptx)。`lecture/` への完成品 export 元、非公開素材も内包 |
 | `tmp/` | × | T5 | 真の scratch (新 config draft、ephemeral log、実行中 work) |
 
 ### tier 別 削除タイミング
 
 - **T0 (inbox/)**: 原則削除しない
 - **T1 (notes/)**: 原則削除しない
+- **T1 (slides/)**: 原則永続 (講義シリーズ単位)。シリーズ完了後にアーカイブ判断
 - **T2 (runs/)**: 原則永続
 - **T3 (outputs/)**: notes/ 昇格後 or disk pressure で判断
 - **T5 (tmp/)**: 数日 〜 1 週間
@@ -322,7 +324,7 @@ outputs/                生成物。commit しない。
 以下は commit しないこと:
 
 ```text
-outputs/  runs/  notes/  inbox/  cache/  tmp/  configs/
+outputs/  runs/  notes/  inbox/  cache/  tmp/  configs/  slides/
 *.pt、大きな tensor、モデル重み、Hugging Face cache
 .env / .env.* / token / secret / huggingface_token*
 ```

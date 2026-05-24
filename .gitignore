@@ -17,6 +17,7 @@ tmp/
 # Knowledge / external archives (gitignored permanent)
 notes/
 inbox/
+slides/
 
 # 廃止された慣習 dir (誤復活防止)
 logs/

@@ -89,9 +89,7 @@ def main() -> int:
     print()
 
     try:
-        # diffusers は _LazyModule 経由で公開しているので Pyright の
-        # reportPrivateImportUsage が誤検知する。実行時の public API はこの形が正。
-        from diffusers import StableDiffusionPipeline  # pyright: ignore[reportPrivateImportUsage]
+        from diffusers import StableDiffusionPipeline
         from diffusers.pipelines.stable_diffusion.pipeline_output import (
             StableDiffusionPipelineOutput,
         )

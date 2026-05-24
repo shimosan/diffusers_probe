@@ -4,6 +4,9 @@
 
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "openFilesOnly",
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportPrivateImportUsage": "none"
+  },
 
   "files.exclude": {
     "**/__pycache__": true,
@@ -19,5 +22,8 @@
     "**/__pycache__": true
   },
   "cursorpyright.analysis.diagnosticMode": "openFilesOnly",
-  "cursorpyright.analysis.typeCheckingMode": "basic"
+  "cursorpyright.analysis.typeCheckingMode": "basic",
+  "cursorpyright.analysis.diagnosticSeverityOverrides": {
+    "reportPrivateImportUsage": "none"
+  }
 }

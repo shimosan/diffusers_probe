@@ -78,7 +78,7 @@ def main() -> int:
     print()
 
     try:
-        from diffusers import QwenImagePipeline  # pyright: ignore[reportPrivateImportUsage]
+        from diffusers import QwenImagePipeline
     except Exception as e:
         print(f"[error] diffusers の import に失敗: {type(e).__name__}: {e}")
         print("[hint ] Qwen-Image には diffusers の新しいバージョンが必要です。")

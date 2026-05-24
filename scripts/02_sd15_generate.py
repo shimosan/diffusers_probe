@@ -33,7 +33,7 @@ SCRIPT_NAME = "02_sd15_generate.py"
 
 
 def load_pipeline(model_id: str, dtype: torch.dtype, device: str, *, attention_slicing: bool):
-    from diffusers import StableDiffusionPipeline  # pyright: ignore[reportPrivateImportUsage]
+    from diffusers import StableDiffusionPipeline
 
     print(f"[load] StableDiffusionPipeline.from_pretrained (dtype={dtype}) ...")
     t0 = time.perf_counter()

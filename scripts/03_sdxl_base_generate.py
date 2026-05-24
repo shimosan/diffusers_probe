@@ -75,7 +75,7 @@ def main() -> int:
     print()
 
     try:
-        from diffusers import StableDiffusionXLPipeline  # pyright: ignore[reportPrivateImportUsage]
+        from diffusers import StableDiffusionXLPipeline
     except Exception as e:
         print(f"[error] diffusers の import に失敗: {type(e).__name__}: {e}")
         return 1

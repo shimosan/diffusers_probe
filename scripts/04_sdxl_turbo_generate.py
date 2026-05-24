@@ -73,7 +73,7 @@ def main() -> int:
     print()
 
     try:
-        from diffusers import AutoPipelineForText2Image  # pyright: ignore[reportPrivateImportUsage]
+        from diffusers import AutoPipelineForText2Image
     except Exception as e:
         print(f"[error] diffusers の import に失敗: {type(e).__name__}: {e}")
         return 1

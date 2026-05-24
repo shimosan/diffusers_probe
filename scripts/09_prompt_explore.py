@@ -883,9 +883,7 @@ def main() -> int:
     # pipeline load
     log("[load] StableDiffusionXLPipeline ...")
     try:
-        # diffusers は _LazyModule 経由で公開しているので Pyright の
-        # reportPrivateImportUsage が誤検知する。実行時の public API はこの形が正。
-        from diffusers import StableDiffusionXLPipeline  # pyright: ignore[reportPrivateImportUsage]
+        from diffusers import StableDiffusionXLPipeline
         t0 = time.perf_counter()
         pipe = StableDiffusionXLPipeline.from_pretrained(
             model_id, torch_dtype=dtype, use_safetensors=True,

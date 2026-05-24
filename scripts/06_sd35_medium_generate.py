@@ -77,7 +77,7 @@ def main() -> int:
     print()
 
     try:
-        from diffusers import StableDiffusion3Pipeline  # pyright: ignore[reportPrivateImportUsage]
+        from diffusers import StableDiffusion3Pipeline
     except Exception as e:
         print(f"[error] diffusers の import に失敗: {type(e).__name__}: {e}")
         print("[hint ] SD3 は比較的新しい diffusers が必要です (>= 0.30)。")

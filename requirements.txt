@@ -12,6 +12,7 @@ transformers
 accelerate
 huggingface_hub
 safetensors
+peft   # diffusers の load_lora_weights が peft backend を必須にしている (01 §8 LoRA load 用)
 
 # 画像・配列
 pillow

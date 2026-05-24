@@ -127,7 +127,9 @@ git 管理対象と git 管理外 (gitignored) に分かれ、保存期間 (tier
 | dir | git | tier | 役割 |
 |---|:-:|:-:|---|
 | `scripts/` | ○ | — | Python worker (`*.py`) + shell runner (`run_*.sh`) + script-specific config template (`*_template.json`) |
-| `docs/` | ○ | — | 公開 formal report (md) |
+| `lecture/` | ○ | — | 学生がまず読む講義本編 (フォーマット不問: ipynb / md / pdf / pptx 等) |
+| `lecture/images/` | ○ | — | lecture/ で参照する figure (outputs/ から cp、必要になったら作る) |
+| `docs/` | ○ | — | 補助 reference (フォーマット不問: ipynb / md / pdf / pptx 等) |
 | `docs/images/` | ○ | — | docs/ で参照する figure (outputs/ から cp) |
 | `inbox/` | × | T0 | 外部由来 永続資料 (3 年前 notebook、論文 PDF、共有された他人の素材など) |
 | `notes/` | × | T1 | 内部生成 永続 (md 中心の知見記録: handoff、observation、curated 実験記録) |
@@ -251,17 +253,27 @@ outputs/09_explore/<config_slug>/
 
 ---
 
+## lecture/ と docs/ の使い分け
+
+両者ともフォーマット不問 (ipynb / md / pdf / pptx 等)。**内容で分ける**:
+
+- `lecture/` — 学生がまず読む講義本編 (intro notebook、講義 slide deck 等)
+- `docs/` — 補助 reference (script 単位の formal report、技術 probe、付録等)
+
+どちらも公開対象なので個人情報・絶対パス・token を含めない。lecture/ から docs/ への figure 参照はせず、必要なら `lecture/images/` を作って完結させる。
+
+---
+
 ## docs/ の方針
 
 - figure は `outputs/` から `docs/images/` へ **cp** (mv ではない)。outputs/ にも原本を残す。
 - 1 script = 1 docs md。同じ script を複数回更新しても新ファイルを作らず、md を更新する。
-- 公開対象なので個人情報・絶対パス・token を含めない。
 
 ---
 
 ## notebook の方針
 
-notebook を作る場合 (現時点では未着手):
+`lecture/` `docs/` どちらに置く ipynb (notebook) にも適用:
 
 - 各 notebook は **単体で完結する**設計にする (scripts/ への import / 参照は不可)。
 - `~/.venvs/dfs2026` (学生用 slim venv) で動くことを目指す。
@@ -341,7 +353,13 @@ outputs/  runs/  notes/  inbox/  cache/  tmp/  configs/
 4. ユーザーの承認を得てから `git commit`
 5. `git push` はユーザーが明示的に要求した場合のみ実行する
 
-commit メッセージは 1 行で、`add:` / `update:` / `fix:` / `remove:` などの prefix を使う。
+commit メッセージは `add:` / `update:` / `fix:` / `remove:` などの prefix を使う。
+
+長さは **中庸** を目指す (簡潔すぎず、詳細を全部羅列もしない):
+
+- subject (1 行目) は核となる変更だけ、50〜70 文字程度を目安。
+- 「11 点 + 〜 + 〜 + 〜」のような長い列挙は subject に書かない。詳細が必要なら空行 + body に書く。
+- 「全画像 outputs/... 保存 (... = N 枚、... スタイルに統一)」のような副次情報を subject に積まない。
 
 ---
 

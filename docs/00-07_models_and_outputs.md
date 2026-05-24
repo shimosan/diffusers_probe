@@ -581,7 +581,7 @@ python scripts/04_sdxl_turbo_generate.py
 
 ### 長期 (notebook 化)
 
-- [ ] [notebooks/](../notebooks/) に学生配布用 notebook を作る (slim venv `~/.venvs/dfs2026` で動作)。candidate: SDXL Turbo + prompt を変えて遊ぶ notebook。
+- [ ] [lecture/](../lecture/) に学生配布用 notebook を作る (slim venv `~/.venvs/dfs2026` で動作)。candidate: SDXL Turbo + prompt を変えて遊ぶ notebook。
 
 ---
 

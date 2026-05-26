@@ -26,3 +26,6 @@ scikit-learn
 # Jupyter kernel + 進捗 widget (ipywidgets を入れないと tqdm.notebook が IProgress 警告を出す)
 ipykernel
 ipywidgets
+
+# notebook をブラウザで開く (Cursor 以外の閲覧路)
+jupyterlab

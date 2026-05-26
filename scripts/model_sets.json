@@ -1,0 +1,193 @@
+{
+  "_doc": "10_quickgen.py 専用 model entry 集。01-07 (legacy single-shot 系) は読まず、引き続き diffusers_probe.json を使う。各 entry のスキーマ:\n  base_model_id      : Hugging Face Hub repo id (必須)\n  width, height      : 生成解像度 (省略時 1024)\n  num_inference_steps, guidance_scale : sampler 設定 (必須)\n  mps_dtype, cuda_dtype, cpu_dtype    : device 別 dtype (float16/float32/bfloat16)\n  enable_attention_slicing_on_mps     : optional\n  vae_fp32_override                    : optional (SDXL 系 MPS fp16 黒画像対策)\n  enable_model_cpu_offload             : optional (大型 model 用)\n  max_sequence_length                  : optional (FLUX 系)\n  true_cfg_scale                       : optional (Qwen-Image)\n  scheduler                            : optional {class, config_overrides}\n  loras                                : optional list[{repo, weight_name, scale, name?}]。複数指定時は set_adapters 経由で stack。\n  notes                                : 自由記述 (人間向けメモ、code は無視)。",
+  "default_model": "sd15",
+  "model_sets": {
+    "sd15": {
+      "base_model_id": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 20,
+      "guidance_scale": 7.5,
+      "mps_dtype": "float16",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "vae_fp32_override": true,
+      "notes": "SD1.5。1024 生成では fp16 VAE が NaN になりやすいので vae_fp32_override で回避。SD1.5 は 512 訓練のため 1024 では構図破綻あり (比較用に敢えて)。"
+    },
+    "sdxl_base": {
+      "base_model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 30,
+      "guidance_scale": 7.5,
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "vae_fp32_override": false,
+      "notes": "MPS では fp16/bf16 だと UNet または VAE で NaN が出るため fp32。"
+    },
+    "sdxl_turbo": {
+      "base_model_id": "stabilityai/sdxl-turbo",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 4,
+      "guidance_scale": 0.0,
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "notes": "SDXL 蒸留版。CFG なし (guidance=0)、negative_prompt も使わない。"
+    },
+    "flux_schnell": {
+      "base_model_id": "black-forest-labs/FLUX.1-schnell",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 4,
+      "guidance_scale": 0.0,
+      "max_sequence_length": 256,
+      "mps_dtype": "bfloat16",
+      "cuda_dtype": "bfloat16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "notes": "FLUX 蒸留版 (HF gated)。bfloat16 推奨。"
+    },
+    "sd35_medium": {
+      "base_model_id": "stabilityai/stable-diffusion-3.5-medium",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 28,
+      "guidance_scale": 4.5,
+      "mps_dtype": "bfloat16",
+      "cuda_dtype": "bfloat16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "notes": "SD3.5 Medium (HF gated)。bfloat16 推奨。"
+    },
+    "qwen_image": {
+      "base_model_id": "Qwen/Qwen-Image",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 30,
+      "guidance_scale": 4.0,
+      "true_cfg_scale": 4.0,
+      "mps_dtype": "bfloat16",
+      "cuda_dtype": "bfloat16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "notes": "大型 MMDiT (~20B)。MPS では重い。"
+    },
+    "sdxl_lightning_4step": {
+      "base_model_id": "stabilityai/stable-diffusion-xl-base-1.0",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 4,
+      "guidance_scale": 0.0,
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "vae_fp32_override": false,
+      "scheduler": {
+        "class": "EulerDiscreteScheduler",
+        "config_overrides": {
+          "timestep_spacing": "trailing"
+        }
+      },
+      "loras": [
+        {
+          "repo": "ByteDance/SDXL-Lightning",
+          "weight_name": "sdxl_lightning_4step_lora.safetensors",
+          "scale": 1.0,
+          "name": "lightning_4step"
+        }
+      ],
+      "notes": "SDXL Base + Lightning 4-step LoRA + trailing scheduler。lecture/01 §8 参照。guidance=0 で CFG なし。"
+    },
+    "animagine_xl_31": {
+      "base_model_id": "cagliostrolab/animagine-xl-3.1",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 28,
+      "guidance_scale": 6.0,
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "scheduler": {
+        "class": "EulerAncestralDiscreteScheduler"
+      },
+      "notes": "anime 特化 fullモデル (~14 GB)。Danbooru tag 形式 prompt + quality tag prefix 推奨 (prompt_sets の witch_anime 参照)。MPS では fp16/bf16 が黒画像化する SDXL 一般リスクのため fp32 既定。"
+    },
+    "animagine_style_enhancer": {
+      "base_model_id": "cagliostrolab/animagine-xl-3.1",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 28,
+      "guidance_scale": 6.0,
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "scheduler": {
+        "class": "EulerAncestralDiscreteScheduler"
+      },
+      "loras": [
+        {
+          "repo": "Linaqruf/style-enhancer-xl-lora",
+          "weight_name": "style-enhancer-xl.safetensors",
+          "scale": 0.6,
+          "name": "style_enhancer"
+        }
+      ],
+      "notes": "Animagine XL 3.1 + style-enhancer LoRA。scale=0.6 は model card 推奨値。元は Animagine 2.0 base 想定で、3.1 適用は推奨外組み合わせ (lecture/01 §10 と同じ実験)。"
+    },
+    "animagine_detailer": {
+      "base_model_id": "cagliostrolab/animagine-xl-3.1",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 28,
+      "guidance_scale": 6.0,
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "scheduler": {
+        "class": "EulerAncestralDiscreteScheduler"
+      },
+      "loras": [
+        {
+          "repo": "Linaqruf/anime-detailer-xl-lora",
+          "weight_name": "anime-detailer-xl.safetensors",
+          "scale": 2.0,
+          "name": "anime_detailer"
+        }
+      ],
+      "notes": "Animagine XL 3.1 + anime-detailer LoRA。concept slider 型 LoRA (range -2..2)。scale=2.0 は detail 最大方向 (model card の example 値)。"
+    },
+    "animagine_nouveau": {
+      "base_model_id": "cagliostrolab/animagine-xl-3.1",
+      "width": 1024,
+      "height": 1024,
+      "num_inference_steps": 28,
+      "guidance_scale": 6.0,
+      "mps_dtype": "float32",
+      "cuda_dtype": "float16",
+      "cpu_dtype": "float32",
+      "enable_attention_slicing_on_mps": true,
+      "scheduler": {
+        "class": "EulerAncestralDiscreteScheduler"
+      },
+      "loras": [
+        {
+          "repo": "Linaqruf/anime-nouveau-xl-lora",
+          "weight_name": "anime-nouveau-xl.safetensors",
+          "scale": 0.6,
+          "name": "anime_nouveau"
+        }
+      ],
+      "notes": "Animagine XL 3.1 + anime-nouveau LoRA (装飾・古典 anime 美学)。scale=0.6 は model card 推奨値。"
+    }
+  }
+}

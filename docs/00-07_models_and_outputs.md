@@ -180,7 +180,7 @@ def pick_device_and_dtype():
 ### 出力ファイル
 
 - [runs/2026-05-23_clean/sd15_generate_smoke.png](../runs/2026-05-23_clean/sd15_generate_smoke.png) (退避保存)
-- `outputs/sd15_generate_smoke.{png,_summary.json,.txt}`
+- `outputs/00-07_legacy/sd15_generate_smoke.{png,_summary.json,.txt}`
 
 ---
 
@@ -588,6 +588,8 @@ python scripts/04_sdxl_turbo_generate.py
 ## 15. 出力ファイル一覧
 
 ### scripts → 凍結保存先
+
+01-07 (single-shot 流) の生成物は `outputs/00-07_legacy/<basename>.{png,_summary.json,.txt}` に出力される (旧仕様では `outputs/` 直下に置いていたが、08 以降の subdir 流と混ざって見通しが悪くなったため 2026-05-25 にまとめた)。
 
 凍結 run: `runs/2026-05-23_clean/` (AC + cache warmed + caffeinate)。`runs/` は git 管理外で Dropbox sync で個人保全。
 

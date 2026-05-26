@@ -1,0 +1,31 @@
+{
+  "_doc": "10_quickgen.py が読む prompt set 一覧。各 entry は {prompt, negative_prompt, seed}。default_prompt_set は CLI --prompt-sets 省略時に使う key。新規追加は自由 (ASCII 中心の slug を key にすると CLI で打ちやすい)。",
+  "default_prompt_set": "witch",
+  "prompt_sets": {
+    "witch": {
+      "prompt": "a young witch with long flowing hair holding a glowing magic staff, in an enchanted forest with bioluminescent mushrooms, fantasy art, masterpiece, detailed",
+      "negative_prompt": "blurry, low quality, distorted, bad anatomy, extra limbs, watermark, signature",
+      "seed": 42
+    },
+    "robot_classroom": {
+      "prompt": "A small robot studying artificial intelligence in a university classroom, simple illustration",
+      "negative_prompt": "blurry, low quality, distorted",
+      "seed": 42
+    },
+    "astronaut_horse": {
+      "prompt": "a photo of an astronaut riding a horse",
+      "negative_prompt": "",
+      "seed": 42
+    },
+    "salt_lake_portrait": {
+      "prompt": "high quality, very high resolution, large filesize, high detailed, distant wide shot, straight hair, dark hair, very long hair, smile, white dress, frill, very long dress, Uyuni salt lake, walking on the water, Rembrandt lighting, colorful refraction, lens flare, bloom, film reflection",
+      "negative_prompt": "lowres, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, multiple legs, malformation, close up",
+      "seed": 42
+    },
+    "witch_anime": {
+      "prompt": "masterpiece, best quality, very aesthetic, absurdres, 1girl, young witch, long flowing hair, holding magic staff, glowing staff, enchanted forest, bioluminescent mushrooms, fantasy art, detailed",
+      "negative_prompt": "nsfw, lowres, (bad), text, error, fewer, extra, missing, worst quality, jpeg artifacts, low quality, watermark, unfinished, displeasing, oldest, early, chromatic aberration, signature, extra digits, artistic error, username, scan, [abstract]",
+      "seed": 42
+    }
+  }
+}

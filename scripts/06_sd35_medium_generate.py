@@ -10,9 +10,9 @@
 #                        bfloat16, enable_model_cpu_offload, fallback}
 #
 # 出力:
-#   outputs/sd35_medium_generate.png
-#   outputs/sd35_medium_generate_summary.json
-#   outputs/sd35_medium_generate.txt
+#   outputs/00-07_legacy/sd35_medium_generate.png
+#   outputs/00-07_legacy/sd35_medium_generate_summary.json
+#   outputs/00-07_legacy/sd35_medium_generate.txt
 
 from __future__ import annotations
 
@@ -181,7 +181,7 @@ def main() -> int:
         load_time_sec=load_elapsed,
         generation_time_sec=gen_elapsed,
         total_time_sec=total_elapsed,
-        image_relpath=f"outputs/{OUTPUT_BASENAME}.png",
+        image_relpath=f"outputs/00-07_legacy/{OUTPUT_BASENAME}.png",
         extras=extras,
     )
 

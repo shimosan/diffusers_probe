@@ -10,9 +10,9 @@
 #   SDXL の fp16 + MPS では VAE decode が黒画像になることがある。vae_fp32_override = true 既定。
 #
 # 出力:
-#   outputs/sdxl_base_generate.png
-#   outputs/sdxl_base_generate_summary.json
-#   outputs/sdxl_base_generate.txt
+#   outputs/00-07_legacy/sdxl_base_generate.png
+#   outputs/00-07_legacy/sdxl_base_generate_summary.json
+#   outputs/00-07_legacy/sdxl_base_generate.txt
 
 from __future__ import annotations
 
@@ -154,7 +154,7 @@ def main() -> int:
         load_time_sec=load_elapsed,
         generation_time_sec=gen_elapsed,
         total_time_sec=total_elapsed,
-        image_relpath=f"outputs/{OUTPUT_BASENAME}.png",
+        image_relpath=f"outputs/00-07_legacy/{OUTPUT_BASENAME}.png",
         extras=extras,
     )
 

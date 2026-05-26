@@ -11,9 +11,9 @@
 # 失敗時は fallback (低解像度/少ステップ) を試し、それでも厳しければ GPU サーバー候補と記録する。
 #
 # 出力:
-#   outputs/qwen_image_generate.png
-#   outputs/qwen_image_generate_summary.json
-#   outputs/qwen_image_generate.txt
+#   outputs/00-07_legacy/qwen_image_generate.png
+#   outputs/00-07_legacy/qwen_image_generate_summary.json
+#   outputs/00-07_legacy/qwen_image_generate.txt
 
 from __future__ import annotations
 
@@ -184,7 +184,7 @@ def main() -> int:
         load_time_sec=load_elapsed,
         generation_time_sec=gen_elapsed,
         total_time_sec=total_elapsed,
-        image_relpath=f"outputs/{OUTPUT_BASENAME}.png",
+        image_relpath=f"outputs/00-07_legacy/{OUTPUT_BASENAME}.png",
         extras=extras,
     )
 

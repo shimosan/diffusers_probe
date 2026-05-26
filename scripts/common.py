@@ -1,7 +1,10 @@
 # diffusers_probe の script 間で共有するユーティリティ。
 #
 # - project_root(), load_config(), get_common(), get_model_config()
-# - ensure_dir(), resolve_outputs_dir(), resolve_logs_dir()
+# - load_prompt_sets(), get_prompt_set()
+# - load_model_sets(), get_model_set()
+# - ensure_dir(), resolve_outputs_dir(), resolve_legacy_outputs_dir(),
+#   resolve_quickgen_outputs_dir(), resolve_logs_dir()
 # - parse_dtype(), pick_device_and_dtype()
 # - apply_vae_fp32_override()
 # - build_summary_base() : 03-07 で共通の summary JSON 形式
@@ -45,6 +48,46 @@ def get_model_config(cfg: dict[str, Any], model_key: str | None = None) -> dict[
         raise KeyError(f"models.{model_key} not found in config") from e
 
 
+def load_model_sets() -> dict[str, Any]:
+    # 10_quickgen.py が使う model entry 集。スキーマは model_sets.json 冒頭の _doc 参照。
+    path = Path(__file__).parent / "model_sets.json"
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def get_model_set(model_sets_cfg: dict[str, Any], key: str | None = None) -> tuple[str, dict[str, Any]]:
+    sets = model_sets_cfg.get("model_sets", {})
+    if key is None:
+        key = model_sets_cfg.get("default_model")
+        if not key:
+            raise KeyError("default_model not set in model_sets.json")
+    try:
+        return key, sets[key]
+    except KeyError as e:
+        available = ", ".join(sorted(sets.keys())) or "(none)"
+        raise KeyError(f"model_sets.{key} not found. available: {available}") from e
+
+
+def load_prompt_sets() -> dict[str, Any]:
+    # 10_quickgen.py が使う prompt set 一覧。スキーマは prompt_sets.json 冒頭の _doc 参照。
+    path = Path(__file__).parent / "prompt_sets.json"
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def get_prompt_set(prompt_sets_cfg: dict[str, Any], key: str | None = None) -> tuple[str, dict[str, Any]]:
+    sets = prompt_sets_cfg.get("prompt_sets", {})
+    if key is None:
+        key = prompt_sets_cfg.get("default_prompt_set")
+        if not key:
+            raise KeyError("default_prompt_set not set in prompt_sets.json")
+    try:
+        return key, sets[key]
+    except KeyError as e:
+        available = ", ".join(sorted(sets.keys())) or "(none)"
+        raise KeyError(f"prompt_sets.{key} not found. available: {available}") from e
+
+
 def ensure_dir(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -52,6 +95,16 @@ def ensure_dir(path: Path) -> Path:
 
 def resolve_outputs_dir() -> Path:
     return ensure_dir(project_root() / "outputs")
+
+
+def resolve_legacy_outputs_dir() -> Path:
+    # 01-07 (single-shot 流) は outputs/00-07_legacy/ 配下にまとめる。
+    return ensure_dir(project_root() / "outputs" / "00-07_legacy")
+
+
+def resolve_quickgen_outputs_dir(run_label: str) -> Path:
+    # 10_quickgen の run ごとの出力先。outputs/10_quickgen/<run_label>/。
+    return ensure_dir(project_root() / "outputs" / "10_quickgen" / run_label)
 
 
 def resolve_logs_dir() -> Path:
@@ -178,8 +231,8 @@ def write_outputs(
     prompt: str,
     negative_prompt: str,
 ) -> tuple[Path, Path, Path]:
-    """outputs/<basename>.{png,_summary.json,.txt} を一括保存して 3 つのパスを返す。"""
-    outputs_dir = resolve_outputs_dir()
+    """outputs/00-07_legacy/<basename>.{png,_summary.json,.txt} を一括保存して 3 つのパスを返す。"""
+    outputs_dir = resolve_legacy_outputs_dir()
     png_path = outputs_dir / f"{output_basename}.png"
     json_path = outputs_dir / f"{output_basename}_summary.json"
     txt_path = outputs_dir / f"{output_basename}.txt"

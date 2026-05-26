@@ -8,8 +8,8 @@
 # 同じ prompt / negative_prompt / seed を使うので、構図破綻と本来の品質の対比が見える。
 #
 # 出力 (2 セット):
-#   outputs/sd15_generate_1024_fp32.png / _summary.json / .txt
-#   outputs/sd15_generate_512_fp16.png  / _summary.json / .txt
+#   outputs/00-07_legacy/sd15_generate_1024_fp32.png / _summary.json / .txt
+#   outputs/00-07_legacy/sd15_generate_512_fp16.png  / _summary.json / .txt
 
 from __future__ import annotations
 
@@ -116,7 +116,7 @@ def run_pass(
         load_time_sec=load_time_sec,
         generation_time_sec=gen_elapsed,
         total_time_sec=load_time_sec + gen_elapsed,
-        image_relpath=f"outputs/{output_basename}.png",
+        image_relpath=f"outputs/00-07_legacy/{output_basename}.png",
         extras=extras,
     )
 

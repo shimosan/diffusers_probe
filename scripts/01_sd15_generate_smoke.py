@@ -17,9 +17,9 @@
 #   - 512x512, 20 steps, guidance_scale=7.5
 #
 # 出力:
-#   outputs/sd15_generate_smoke.png
-#   outputs/sd15_generate_smoke_summary.json
-#   outputs/sd15_generate_smoke.txt
+#   outputs/00-07_legacy/sd15_generate_smoke.png
+#   outputs/00-07_legacy/sd15_generate_smoke_summary.json
+#   outputs/00-07_legacy/sd15_generate_smoke.txt
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ from typing import cast
 
 import torch
 
-from common import ensure_dir, get_common, load_config, project_root, resolve_outputs_dir
+from common import get_common, load_config, project_root, resolve_legacy_outputs_dir
 
 OUTPUT_BASENAME = "sd15_generate_smoke"
 
@@ -64,7 +64,7 @@ def main() -> int:
     negative_prompt: str = common.get("negative_prompt", "")
     seed: int = int(common["seed"])
 
-    outputs_dir = ensure_dir(resolve_outputs_dir())
+    outputs_dir = resolve_legacy_outputs_dir()
     png_path = outputs_dir / f"{OUTPUT_BASENAME}.png"
     json_path = outputs_dir / f"{OUTPUT_BASENAME}_summary.json"
     txt_path = outputs_dir / f"{OUTPUT_BASENAME}.txt"

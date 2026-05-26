@@ -13,9 +13,9 @@
 # bfloat16 が推奨 (FLUX のリリースノートに準拠)。
 #
 # 出力:
-#   outputs/flux_schnell_generate.png
-#   outputs/flux_schnell_generate_summary.json
-#   outputs/flux_schnell_generate.txt
+#   outputs/00-07_legacy/flux_schnell_generate.png
+#   outputs/00-07_legacy/flux_schnell_generate_summary.json
+#   outputs/00-07_legacy/flux_schnell_generate.txt
 
 from __future__ import annotations
 
@@ -185,7 +185,7 @@ def main() -> int:
         load_time_sec=load_elapsed,
         generation_time_sec=gen_elapsed,
         total_time_sec=total_elapsed,
-        image_relpath=f"outputs/{OUTPUT_BASENAME}.png",
+        image_relpath=f"outputs/00-07_legacy/{OUTPUT_BASENAME}.png",
         extras=extras,
     )
 

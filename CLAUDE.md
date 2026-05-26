@@ -188,10 +188,33 @@ diffusers_probe.json
       enable_attention_slicing_on_mps
       vae_fp32_override
     sdxl_base / sdxl_turbo / flux_schnell / sd35_medium / qwen_image  # 同様の per-model dict (実装済)
+
+prompt_sets.json          # 10_quickgen.py 専用 (01-07 は読まない)
+  default_prompt_set
+  prompt_sets
+    witch / robot_classroom / astronaut_horse / witch_anime / ...  # 各 key = {prompt, negative_prompt, seed}
+
+model_sets.json           # 10_quickgen.py 専用 (01-07 は引き続き diffusers_probe.json を使う)
+  default_model
+  model_sets
+    sd15                  # モデル entry ごとに 1 dict
+      base_model_id       # HF Hub repo id (必須)
+      width / height / num_inference_steps / guidance_scale
+      mps_dtype / cuda_dtype / cpu_dtype
+      enable_attention_slicing_on_mps / vae_fp32_override / enable_model_cpu_offload  # 任意
+      max_sequence_length  # FLUX 系の任意
+      true_cfg_scale       # Qwen-Image 系の任意
+      scheduler           # {class, config_overrides} で scheduler 差し替え (任意)
+      loras               # [{repo, weight_name, scale, name?}, ...] で LoRA stacking (任意、set_adapters 経由)
+      notes               # 自由記述
+    sdxl_base / sdxl_turbo / flux_schnell / sd35_medium / qwen_image     # 既存 6 base
+    sdxl_lightning_4step                                                   # SDXL Base + Lightning LoRA + trailing
+    animagine_xl_31 / animagine_style_enhancer / animagine_detailer / animagine_nouveau  # anime 系 (LoRA stacking 例)
 ```
 
 各 script は冒頭で `MODEL_KEY = "sd15"` のように対象 key を指定し、`get_model_config(cfg, MODEL_KEY)`
 で per-model dict を取得する。01 は per-model dict も読まずハードコードで動く。
+10_quickgen は MODEL_KEY を持たず、CLI から複数 model key を受けてループする (model_sets.json の key を参照)。
 
 ---
 
@@ -219,7 +242,18 @@ Path("outputs").mkdir(parents=True, exist_ok=True)
 07_qwen_image_generate.py       Qwen-Image
 08_sdxl_base_deep_probe.py      SDXL Base の deep probe (legacy-style attention grid)
 09_prompt_explore.py            SDXL Base の prompt 探索 (config 駆動)
+10_quickgen.py                  汎用 quickgen (--models x --prompt-sets で組み合わせ実行 + grid PNG)
 ```
+
+`10_quickgen.py` は 01-07 を統合した汎用版:
+
+- 別 file `scripts/model_sets.json` と `scripts/prompt_sets.json` を読む (diffusers_probe.json は touch しない)
+- `--models sd15,sdxl_base --prompt-sets witch,astronaut_horse` のように両者をカンマで列挙、`--all-models` / `--all-prompt-sets` も可、`--list` で key 一覧表示 (LoRA / scheduler 設定は `--list` 出力に併記)
+- 内部は `AutoPipelineForText2Image.from_pretrained` を第一選択、失敗時のみ `DiffusionPipeline` にフォールバック (model 個別 script は不要)
+- model_sets entry で **LoRA stacking** (複数 LoRA を `loras: [...]` で並べると `set_adapters` + `fuse_lora` で同時 fuse) と **scheduler 差し替え** (`scheduler: {class, config_overrides}`) をサポート
+- 同じ model に対し複数 prompt_set を回す場合 pipeline は 1 回だけ load (model 切替コスト回避)
+- 出力は 1 run = 1 subdir で grid.png 付き (下記「出力ファイルの方針」参照)
+- 新しい model / LoRA / prompt を増やしたいときは model_sets.json / prompt_sets.json に entry を足すだけで CLI から呼べる
 
 各 script に対応する shell runner: `scripts/run_<basename>.sh` (必要なものだけ用意)。
 各 script の詳細な役割・パラメータは冒頭の docstring を参照。
@@ -232,13 +266,15 @@ Path("outputs").mkdir(parents=True, exist_ok=True)
 
 軽量な出力は `outputs/` に保存して構いません。
 
-**02-07 (single-shot 流、legacy)**: outputs/ ルートに `<basename>.png` + `_summary.json` + `.txt` の 3 set 直置き:
+**01-07 (single-shot 流、legacy)**: `outputs/00-07_legacy/` 配下に `<basename>.png` + `_summary.json` + `.txt` の 3 set を直置き (2026-05-25 まで `outputs/` 直下に置いていたが、08 以降の subdir 流と混ざるため subdir に集約):
 
 ```text
-outputs/sd15_generate_smoke.png
-outputs/sd15_generate_smoke_summary.json
-outputs/sd15_generate_smoke.txt
+outputs/00-07_legacy/sd15_generate_smoke.png
+outputs/00-07_legacy/sd15_generate_smoke_summary.json
+outputs/00-07_legacy/sd15_generate_smoke.txt
 ```
+
+実装は `scripts/common.py` の `resolve_legacy_outputs_dir()` + `write_outputs()` がまとめて面倒を見る。01 のみ `resolve_legacy_outputs_dir()` を直接使う (write_outputs を経由しない)。
 
 **08 以降 (subdir 流)**: `outputs/<basename>/<run_label>/` 配下に config + 全 output + `run.log` を同梱:
 
@@ -249,6 +285,13 @@ outputs/09_explore/<config_slug>/
   run.log
   seed_NNNN/
   ...
+
+outputs/10_quickgen/<run_label>/
+  config.json                          使った model list + prompt_set list + 環境メタ + 各セル summary
+  run.log
+  grid.png                             全作品を 1 枚に並べた一覧 (列=model, 行=prompt_set)
+  <model_key>__<prompt_set_key>.png    個別画像
+  <model_key>__<prompt_set_key>.json   個別 summary
 ```
 
 完成品レポート (docs/) は curation 完了時に作成する (未着手のものはまだ作らない)。
@@ -280,6 +323,23 @@ outputs/09_explore/<config_slug>/
 - 各 notebook は **単体で完結する**設計にする (scripts/ への import / 参照は不可)。
 - `~/.venvs/dfs2026` (学生用 slim venv) で動くことを目指す。
 - モデル load / 生成 / 可視化を notebook 内に完結させる。
+
+---
+
+## notebook を HTML 化するときの出力先
+
+`jupyter nbconvert --to html` で ipynb を HTML 化する場面は 2 つあり、**出力先を厳密に分ける**:
+
+| 状況 | 出力先 | git | 用途 |
+|---|---|:-:|---|
+| 普段の確認・閲覧 | `outputs/lecture_html/` | × (gitignored, T3) | ローカル閲覧、試し変換 |
+| 講義直前の凍結時のみ | `lecture/` 直下 | ○ (公開対象) | 凍結された配布物として残す |
+
+- **デフォルトは `outputs/lecture_html/`**。Claude 側から `--output-dir lecture/` を default で提案しない。
+- `lecture/` 直下に出すのは「この notebook を講義直前に固める」と明示的に判断したときだけの特別操作。迷ったら必ず確認 (出力先は git 管理境界をまたぐので silent 判断しない)。
+- HTML 1 本 = **30 MB 以下**を目安 (画像 embed 込み)。想定本数 3〜5 本、合計 90〜150 MB ≪ GitHub 推奨 repo 1 GB なので余裕。
+- 凍結時は HTML export と並行して、対応 ipynb を `--ClearOutputPreprocessor.enabled=True --inplace` で output strip して git 管理する (output 込み ipynb は diff が画像 base64 で破綻するため)。
+- ツール: `jupyterlab` / `nbconvert` は両 venv (dfs2026, dfs2026-dev) install 済、追加 install 不要。
 
 ---
 

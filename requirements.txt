@@ -1,8 +1,9 @@
-# diffusers_probe slim venv (~/.venvs/dfs2026) — 学生 notebook 用
-# scripts/exploration 用には別途 requirements-dev.txt (dev venv) を参照。
+# diffusers_probe slim venv (~/.venvs/aidemo2026) — 学生 notebook 用
+# aidemo2026 は aidemo2026 umbrella の共通環境 (旧 dfs2026 を統合)。
+# scripts/exploration 用には別途 requirements-dev.txt (dev venv = dfs2026-dev) を参照。
 #
 # 方針: direct dependencies だけ書く (transitive は pip が解決)。
-# 一発再現: python -m venv ~/.venvs/dfs2026 --prompt dfs2026 && pip install -r requirements.txt
+# 一発再現: python -m venv ~/.venvs/aidemo2026 --prompt aidemo2026 && pip install -r requirements.txt
 
 # Core: diffusion model 実行
 torch

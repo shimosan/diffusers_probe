@@ -4,7 +4,7 @@ Diffusers による画像生成モデルの軽量 probe workspace。
 
 ## Purpose
 
-2026 年度「情報AI基礎」講義デモ向けに、Hugging Face Diffusers を使って各種画像生成モデルの動作を観察・可視化する workspace。
+Hugging Face Diffusers を使って各種画像生成モデルの動作を観察・可視化する調査用 workspace。
 最初は Stable Diffusion 1.5 から始め、段階的に対象モデルを増やしていく予定。
 
 ## Models
@@ -28,7 +28,7 @@ Diffusers による画像生成モデルの軽量 probe workspace。
 | Path | Git | Contents |
 |---|---|---|
 | `scripts/` | ✓ | 番号付き script 群（`common.py`, `00_env_check.py`, `01_sd15_generate_smoke.py` ...）|
-| `docs/` | ✓ | 完成版の実験レポート md と参照画像 `docs/images/`（学生配布対象）|
+| `docs/` | ✓ | 完成版の実験レポート md と参照画像 `docs/images/` |
 | `outputs/` | ✗ | script の生成物（PNG / JSON / TXT 等）。再生成可能で永続性なし |
 | `logs/` | ✗ | 実行ログと作業中の md ドラフト |
 | `cache/`, `tmp/` | ✗ | 一時ファイル用 |
@@ -40,8 +40,8 @@ Diffusers による画像生成モデルの軽量 probe workspace。
 venv は用途別に分ける方針:
 
 ```text
-~/.venvs/dfs2026-dev    scripts / exploration 用（今回はこちらを使う）
-~/.venvs/dfs2026        将来の notebook / 学生用 slim 環境（今回は作成しない）
+~/.venvs/aidemo2026     notebook 用 slim 環境（共通環境 aidemo2026、旧 dfs2026 を統合。kernel 名も aidemo2026）
+~/.venvs/dfs2026-dev    scripts / exploration 用（dev venv。aidemo2026-dev 未作成のため当面これを使用、移行は未定）
 ```
 
 ## Setup
@@ -136,7 +136,7 @@ outputs/sd15_generate.txt
 
 - **何かおかしい / 動作確認したい** → 01。何も悩まずに動く。
 - **普段使う / 設定を変えて挙動を見たい** → 02。fp16/fp32 や safety_checker on/off を試せる。
-- 講義デモで「公式デフォルト」と「速度最適化 + 罠の知識」を分けて見せるときも 01/02 を順に紹介する。
+-「公式デフォルト」と「速度最適化 + 罠の知識」を分けて観察したいときも 01/02 を順に見る。
 
 ### 将来モデルを増やすとき
 

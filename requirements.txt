@@ -1,32 +1,70 @@
-# diffusers_probe slim venv (~/.venvs/aidemo2026) — 学生 notebook 用
-# aidemo2026 は aidemo2026 umbrella の共通環境 (旧 dfs2026 を統合)。
-# scripts/exploration 用には別途 requirements-dev.txt (dev venv = dfs2026-dev) を参照。
+# aidemo2026 — 共通環境の requirements
 #
-# 方針: direct dependencies だけ書く (transitive は pip が解決)。
-# 一発再現: python -m venv ~/.venvs/aidemo2026 --prompt aidemo2026 && pip install -r requirements.txt
+# qwen（テキスト生成）/ diffusers（画像生成）/ wordvec（単語埋め込み）を 1 つの環境で動かす。
+# このファイル1個で Mac / Windows / GPU の有無、どれでもインストールできる。
+#
+# ============ インストール手順（この4ステップ）============
+# 1) Python 3.12.10 で venv を作って有効化:
+#      pyenv install 3.12.10                                          # 3.12.10 が無ければ（pyenv 使用時）
+#      <3.12.10 の python> -m venv ~/.venvs/aidemo2026                # 例: ~/.pyenv/versions/3.12.10/bin/python
+#      有効化  Mac/Linux : source ~/.venvs/aidemo2026/bin/activate
+#              Windows   : ~\.venvs\aidemo2026\Scripts\Activate.ps1
+#      python -m pip install -U pip
+#
+# 2) torch を先に入れる（OS/GPU で違うのはここだけ。★ torch は固定しない＝各環境に合う版が入る）:
+#      Mac (Apple Silicon)        : pip install torch torchvision
+#      Windows/Linux + NVIDIA GPU : pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#      GPU 無し（CPU のみ）        : pip install torch torchvision
+#      （exact な torch 版は固定しない。端末を複製する時は別途の「凍結ロック」で再現する）
+#      ※ CUDA が 12.8 でない人は https://pytorch.org/get-started/locally/ で自分の版の行を使う
+#
+# 3) このファイルを入れる:
+#      pip install -r requirements.txt
+#
+# 4) （任意）notebook の kernelspec は name=python3 なので、VSCode / Cursor は手順1の
+#    venv を interpreter に選べばそのまま動く（追加登録は不要）。classic Jupyter で
+#    一覧に出したい場合のみ: python -m ipykernel install --user --display-name aidemo2026
+#
+# ※ Colab はインストール不要（torch も含め最初から入っている）。手順は不要で、そのまま開いて実行する。
+# ※ torch をこのファイルに書かないのは OS/GPU で入れ方が違うため（手順2で先に入れる）。
 
-# Core: diffusion model 実行
-torch
-torchvision
-diffusers
-transformers
-accelerate
-huggingface_hub
-safetensors
-peft   # diffusers の load_lora_weights が peft backend を必須にしている (01 §8 LoRA load 用)
+# --- 生成モデル（テキスト / 画像）---
+transformers==5.9.0      # Qwen3・SDXL の CLIP
+diffusers==0.38.0        # 画像生成（SD1.5 / SDXL）。transformers 5.9 とセット
+peft==0.19.1             # SDXL の LoRA
+accelerate==1.13.0       # モデル読み込み・device 配置
+safetensors>=0.5,<0.9    # 重みフォーマット
 
-# 画像・配列
-pillow
-numpy
-matplotlib
-pandas
+# --- 単語埋め込み（wordvec）---
+gensim>=4.3.3
 
-# 08 / 09 系の clustering / 散布図用
-scikit-learn
+# --- 数値・データ・可視化 ---
+numpy>=1.26
+scipy>=1.10
+pandas>=2.0
+matplotlib>=3.8
+scikit-learn>=1.3        # PCA / t-SNE
+umap-learn>=0.5          # UMAP（埋め込み可視化）
+seaborn>=0.13
+Pillow>=10               # 画像入出力
 
-# Jupyter kernel + 進捗 widget (ipywidgets を入れないと tqdm.notebook が IProgress 警告を出す)
-ipykernel
-ipywidgets
+# --- 多言語トークン表示の保険（matplotlib が libraqm 非搭載の環境だけ手動整形に使う）---
+#   Mac/Win の pip wheel は libraqm 付き＝native 整形するので raw が正しく、これらは使われない（入れておくだけ）。
+#   libraqm 非搭載の環境では _fix_rtl がこの2つで Arabic を整形する（qwen 02 の font セル参照）。
+arabic-reshaper          # アラビア語の字形連結（libraqm 無し環境用フォールバック）
+python-bidi              # 右→左(RTL)並べ替え（同上。bidi.algorithm.get_display を使用）
 
-# notebook をブラウザで開く (Cursor 以外の閲覧路)
-jupyterlab
+# --- Jupyter / ノート ---
+ipykernel>=6
+ipywidgets>=8            # 進捗バー・HF ダウンロード表示
+nbconvert>=7             # ノートを HTML 書き出し / 一括実行
+watermark>=2.6           # ノートに版数表示
+
+# --- その他（あると便利）---
+einops>=0.8              # テンソル整形
+sentencepiece>=0.2       # 一部トークナイザ
+protobuf>=4              # 一部モデル/トークナイザ
+nbstripout>=0.9          # git コミット時に出力除去
+openpyxl>=3.1            # Excel 読み書き
+python-docx>=1.0         # Word 読み書き
+lxml>=5                  # XML/HTML 解析

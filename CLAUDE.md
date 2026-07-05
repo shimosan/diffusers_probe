@@ -131,21 +131,21 @@ git 管理対象と git 管理外 (gitignored) に分かれ、保存期間 (tier
 | `lecture/images/` | ○ | — | lecture/ で参照する figure (outputs/ から cp、必要になったら作る) |
 | `docs/` | ○ | — | 補助 reference (フォーマット不問: ipynb / md / pdf / pptx 等) |
 | `docs/images/` | ○ | — | docs/ で参照する figure (outputs/ から cp) |
+| `rendered/` | ○ | — | lecture の実行済み notebook (output 込みコピー、GitHub 閲覧用) |
 | `inbox/` | × | T0 | 外部由来 永続資料 (3 年前 notebook、論文 PDF、共有された他人の素材など) |
 | `notes/` | × | T1 | 内部生成 永続 (md 中心の知見記録: handoff、observation、curated 実験記録) |
 | `runs/` | × | T2 | 凍結 archive (実験 1 セットの完全パッケージ: input config + 全 output) |
 | `outputs/` | × | T3 | 現用生成物 (script の生成先、curation 中の md、`run.log` 同梱) |
-| `slides/` | × | T1 | 講義スライド作成作業 (Marp source + custom theme + 生成 pptx)。`lecture/` への完成品 export 元、非公開素材も内包 |
-| `tmp/` | × | T5 | 真の scratch (新 config draft、ephemeral log、実行中 work) |
+| `scratch/` | × | T5 | AI 自由作業領域 (試行錯誤、非追跡) |
+| `tmp/` | × | T5 | ephemeral work (新 config draft、実行中 work、debug log) |
 
 ### tier 別 削除タイミング
 
 - **T0 (inbox/)**: 原則削除しない
 - **T1 (notes/)**: 原則削除しない
-- **T1 (slides/)**: 原則永続 (講義シリーズ単位)。シリーズ完了後にアーカイブ判断
 - **T2 (runs/)**: 原則永続
 - **T3 (outputs/)**: notes/ 昇格後 or disk pressure で判断
-- **T5 (tmp/)**: 数日 〜 1 週間
+- **T5 (scratch/, tmp/)**: 数日 〜 1 週間 (scratch/ は AI 自由作業、随時整理してよい)
 
 ### notes/ の中身ルール
 
@@ -169,6 +169,8 @@ git 管理対象と git 管理外 (gitignored) に分かれ、保存期間 (tier
 - `logs/` → 廃止 (実行ログは `outputs/<slug>/run.log` 同梱、永続 md は `notes/`、ephemeral log は `tmp/`)
 - `configs/` → 廃止 (各 run dir に `config.json` として同梱、template は `scripts/<basename>_template.json` に)
 - `runners/` → 結局作らず、shell wrapper は `scripts/run_*.sh` で同居
+- `slides/` → 廃止 (Marp スライド作業は umbrella 上位の `../slides` / `../slides_drafts` へ移動。この repo には持たない)
+- `sandbox/` → `scratch/` に改名 (qwen と命名統一)
 
 ---
 
@@ -384,12 +386,12 @@ outputs/                生成物。commit しない。
 以下は commit しないこと:
 
 ```text
-outputs/  runs/  notes/  inbox/  cache/  tmp/  configs/  slides/
+outputs/  runs/  logs/  cache/  tmp/  scratch/  notes/  inbox/
 *.pt、大きな tensor、モデル重み、Hugging Face cache
 .env / .env.* / token / secret / huggingface_token*
 ```
 
-(`logs/` は廃止。`notes/` `inbox/` `configs/` を追加。`configs/` は廃止だが誤って復活しないよう gitignore。)
+(`rendered/` と `images/` は tracked=公開対象。`inbox/` は diffusers 固有で gitignore=保存だが非公開。`.gitignore` は qwen と `inbox/` 1ブロックを除き共通。)
 
 ## 自律実行の禁止
 

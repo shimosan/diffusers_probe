@@ -11,21 +11,20 @@ env/
 # Runtime outputs
 outputs/
 runs/
+logs/
 cache/
+
+# Local-only dirs inside workspace, if any
 tmp/
 
-# Knowledge / external archives (gitignored permanent)
+# Scratch — AI 自由作業領域（試行錯誤、非追跡）
+scratch/
+
+# 作業ノート（md・非追跡。索引 README / 時系列 worklog）
 notes/
+
+# diffusers 固有 — 外部由来の旧講義資料（保存するが非公開・非追跡）
 inbox/
-slides/
-
-# 廃止された慣習 dir (誤復活防止)
-logs/
-configs/
-runners/
-
-# Sandbox notebooks (free to modify, not tracked)
-sandbox/
 
 # Secrets / local env
 .env

@@ -1,190 +1,199 @@
 # diffusers_probe
 
-Diffusers による画像生成モデルの軽量 probe workspace。
+Diffusers を用いた画像生成モデル内部の観察・可視化のための調査
+
+![SDXL Base cross-attention probe](images/sec7_7_per_token_mushrooms.png)
+
+**Figure**: SDXL Base 1.0 の cross-attention probe。生成画像の各位置が、prompt のどの単語に注目して描かれたかを単語ごとに可視化したもの。UNet の cross-attention マップを denoising 全ステップで平均し、トークン単位でヒートマップ化している。図はノート [02_sdxl_base_inside.ipynb](lecture/02_sdxl_base_inside.ipynb) の §7 で生成。（※ showcase 画像は仮。差し替え予定）
 
 ## Purpose
 
-Hugging Face Diffusers を使って各種画像生成モデルの動作を観察・可視化する調査用 workspace。
-最初は Stable Diffusion 1.5 から始め、段階的に対象モデルを増やしていく予定。
+Hugging Face Diffusers の既存 API と、必要に応じた軽い PyTorch hook を使って、潜在拡散モデル（Latent Diffusion Model）の内部計算（text encoder / UNet / cross-attention / scheduler / VAE など）を観察・可視化するための probe workspace。
+主成果物は `lecture/` 配下の Jupyter Notebook 群で、各ノートは単体で完結する設計。
+`scripts/` はその前段・周辺で行った調査スクリプト群、`docs/` には実験レポート md が置かれている。
+Diffusers のソースコードは改変せず、pip install 版を使う。
 
 ## Models
 
-最初の対象:
+lecture ノートで扱う主対象:
 
-- `stable-diffusion-v1-5/stable-diffusion-v1-5`
+- `stable-diffusion-v1-5/stable-diffusion-v1-5`（SD1.5、nb00）
+- `stabilityai/stable-diffusion-xl-base-1.0`（SDXL Base、nb01 / nb02）
 
-将来の追加候補（**今回は実装しない**）:
+`scripts/` で動作確認済みのモデル（下記 Advanced 参照）:
 
-- `stabilityai/stable-diffusion-xl-base-1.0`（SDXL Base）
-- `stabilityai/sdxl-turbo`（SDXL Turbo）
-- `black-forest-labs/FLUX.1-schnell`（FLUX.1-schnell）
-- `stabilityai/stable-diffusion-3.5-medium`（SD3.5 Medium）
-- `Qwen/Qwen-Image`（Qwen-Image）
-
-今回実装済みなのは **SD1.5 の smoke test のみ**。
+- SDXL Turbo / FLUX.1-schnell / SD3.5 Medium / Qwen-Image / SDXL-Lightning・Animagine XL 等の LoRA 派生
 
 ## Repository structure
 
 | Path | Git | Contents |
 |---|---|---|
-| `scripts/` | ✓ | 番号付き script 群（`common.py`, `00_env_check.py`, `01_sd15_generate_smoke.py` ...）|
-| `docs/` | ✓ | 完成版の実験レポート md と参照画像 `docs/images/` |
-| `outputs/` | ✗ | script の生成物（PNG / JSON / TXT 等）。再生成可能で永続性なし |
-| `logs/` | ✗ | 実行ログと作業中の md ドラフト |
-| `cache/`, `tmp/` | ✗ | 一時ファイル用 |
+| `lecture/` | ✓ | Jupyter Notebook（主成果物、各ノート self-contained）|
+| `rendered/` | ✓ | 実行済みノート（output 込み、GitHub 閲覧用）|
+| `scripts/` | ✓ | 番号付き probe / 生成 script 群（後述）|
+| `docs/` | ✓ | 実験レポート md と参照画像 `docs/images/` |
+| `images/` | ✓ | README 用 showcase 画像 |
+| `outputs/` | ✗ | script の生成物（PNG / JSON 等）。再生成可能で永続性なし |
+| `runs/` | ✗ | 凍結 archive（実験 1 セットの完全パッケージ）|
+| `notes/` | ✗ | 作業ノート（`*.md`）|
+| `scratch/` | ✗ | 自由な試行錯誤の作業領域 |
+| `inbox/` | ✗ | 外部由来の旧講義資料（保存するが非公開）|
 
 詳細な作業方針は [CLAUDE.md](CLAUDE.md) を参照。
 
-## Python venvs
+---
 
-venv は用途別に分ける方針:
+## Notebooks
 
-```text
-~/.venvs/aidemo2026     notebook 用 slim 環境（共通環境 aidemo2026、旧 dfs2026 を統合。kernel 名も aidemo2026）
-~/.venvs/dfs2026-dev    scripts / exploration 用（dev venv。aidemo2026-dev 未作成のため当面これを使用、移行は未定）
+`aidemo2026` venv で動作。各ノートは外部 script に依存せず単体で実行できる。実行前のノートの他に、実行済み版と Colab で実行できるリンクを付けてある。Colab 実行する場合、GPU が要るノートは「ランタイムのタイプを変更」で選択する。
+
+- **[00_sd15_intro.ipynb](lecture/00_sd15_intro.ipynb)**
+  Stable Diffusion 1.5 を動かしながら潜在拡散モデルの基本を体験する。環境確認 → モデル読み込み → 画像生成 → pipeline（text encoder / UNet / VAE / scheduler）の観察 → tokenizer → seed / steps の sweep → SD1.5 系 FT モデル。
+
+  [実行結果を見る](rendered/00_sd15_intro.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/00_sd15_intro.ipynb)（GPU・無料 T4 可 / CPU でも可）
+
+- **[01_sdxl_base_intro.ipynb](lecture/01_sdxl_base_intro.ipynb)**
+  00 とほぼ同じ手順を SDXL Base 1.0 で繰り返し、SD1.5 との違いを見比べる。1〜7 章で基本構造、8〜10 章で SDXL 系派生（SDXL Lightning 蒸留 / Animagine XL / style LoRA stacking）。
+
+  [実行結果を見る](rendered/01_sdxl_base_intro.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/01_sdxl_base_intro.ipynb)（GPU・無料 T4 可）
+
+- **[02_sdxl_base_inside.ipynb](lecture/02_sdxl_base_inside.ipynb)**
+  SDXL Base の内部処理を「実物のコードの中身を開いて」見る。tokenize → text encode → prompt embedding の地形図（PCA / t-SNE）→ 手動 scheduler ループ → cross-attention probe → guidance scale と negative prompt → VAE roundtrip。3 年前（2023）の SD1.5 講義の cross-attention 可視化を SDXL Base で組み直したもの。
+
+  [実行結果を見る](rendered/02_sdxl_base_inside.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/02_sdxl_base_inside.ipynb)（メモリ 64GB 以上推奨・実行 ~12 分 / 初回 DL ~14GB）
+
+---
+
+## Setup（notebook 用）
+
+`aidemo2026` venv（**Python 3.12 系を使用。手元の基準は 3.12.10**）を作成し、必要なパッケージを入れる。qwen3_4b_probe と共通の統合環境で、この `requirements.txt` 1 個で Mac / Windows / GPU の有無どれでも入る:
+
+```bash
+# Python は 3.12 系を使う（基準 3.12.10）。まず `python3 --version` で確認:
+#  A) 3.12 系ならそのまま下の `python3 -m venv ...` を実行する。
+#  B) 3.12.10 に厳密に揃えたいなら pyenv で入れ、その python で venv を作る:
+#       pyenv install 3.12.10
+#       ~/.pyenv/versions/3.12.10/bin/python -m venv ~/.venvs/aidemo2026
+python3 -m venv ~/.venvs/aidemo2026
+source ~/.venvs/aidemo2026/bin/activate
+pip install -U pip wheel
+# torch は OS/GPU で入れ方が違うので先に入れる（版は固定しない）:
+pip install torch torchvision                 # Mac (Apple Silicon) / GPU 無し(CPU)
+# NVIDIA GPU (CUDA 12.8) の場合: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+pip install -r requirements.txt
 ```
 
-## Setup
+モデルは各ノートの初回実行時に Hugging Face cache へダウンロードされる（SD1.5 ~5GB / SDXL Base ~14GB）。後続の起動時は cache から読み出される。
 
-dev venv を作成し、必要 package を入れる:
+> **Colab で動かす場合はこの setup は不要**です。torch 等は最初から入っており、各ノート冒頭の「環境セットアップ」セルが Colab を自動判定して必要分だけ `!pip install` します。ノートを開いて「ランタイム → すべて実行」するだけです。
+
+## Notebook の開き方
+
+setup 完了後、`aidemo2026` venv を activate して Jupyter を起動するか、VS Code / Cursor で `.ipynb` を直接開く。
+
+### 方法 A — Jupyter Lab
+
+```bash
+source ~/.venvs/aidemo2026/bin/activate
+cd lecture
+jupyter lab
+```
+
+カーネルは起動した `aidemo2026` venv の Python（汎用の `python3` カーネル）がそのまま使われる。
+
+### 方法 B — VS Code / Cursor
+
+`.ipynb` を直接開けば Jupyter 拡張が起動する。右上の「カーネル選択」から `aidemo2026`（`~/.venvs/aidemo2026/bin/python`）を選択。
+
+### 初回実行時の注意
+
+- 最初のセル（model load）は数十秒〜数分かかる（モデルを RAM に展開するため）。
+- Mac (M シリーズ) では MPS が自動で選ばれる。CUDA 環境では CUDA。何も使えなければ CPU fallback。
+- ノートの kernelspec は汎用の `python3` を指しているので特別なカーネル登録は不要。VS Code / Cursor では `aidemo2026` venv の Python を、Jupyter Lab では起動した venv を選べばそのまま動く（Colab は無関係）。
+
+---
+
+# Advanced — scripts と experiment reports
+
+ここから下は、lecture の前段・周辺で実施した調査スクリプトおよび実験レポートに関する情報。**ノートを動かすだけなら不要**で、内部の経緯や個別実験の詳細を追いたい人向け。
+
+## Scripts
+
+`scripts/` は SD1.5 から複数の潜在拡散モデルへ段階的に対象を広げた probe / 生成スクリプト群。
+
+| # | Script | 内容 |
+|---|---|---|
+| 00 | [00_env_check.py](scripts/00_env_check.py) | 環境（torch / diffusers / MPS）の確認 |
+| 01 | [01_sd15_generate_smoke.py](scripts/01_sd15_generate_smoke.py) | SD1.5 smoke（fp32 + safety_checker ON、ハードコード）|
+| 02 | [02_sd15_generate.py](scripts/02_sd15_generate.py) | SD1.5（fp16/fp32、config 駆動）|
+| 03 | [03_sdxl_base_generate.py](scripts/03_sdxl_base_generate.py) | SDXL Base 1.0 |
+| 04 | [04_sdxl_turbo_generate.py](scripts/04_sdxl_turbo_generate.py) | SDXL Turbo |
+| 05 | [05_flux1_schnell_generate.py](scripts/05_flux1_schnell_generate.py) | FLUX.1-schnell |
+| 06 | [06_sd35_medium_generate.py](scripts/06_sd35_medium_generate.py) | SD3.5 Medium |
+| 07 | [07_qwen_image_generate.py](scripts/07_qwen_image_generate.py) | Qwen-Image |
+| 08 | [08_sdxl_base_deep_probe.py](scripts/08_sdxl_base_deep_probe.py) | SDXL Base の deep probe（legacy-style cross-attention grid）|
+| 09 | [09_prompt_explore.py](scripts/09_prompt_explore.py) | SDXL Base の prompt 探索（config 駆動）|
+| 10 | [10_quickgen.py](scripts/10_quickgen.py) | 汎用 quickgen（`--models` × `--prompt-sets` で組み合わせ実行 + grid PNG）|
+
+`10_quickgen.py` は 01–07 を統合した汎用版で、`scripts/model_sets.json` と `scripts/prompt_sets.json` を読み、`AutoPipelineForText2Image` を第一選択に複数モデル × 複数 prompt を回す。model entry で LoRA stacking と scheduler 差し替えをサポートする。
+
+各 script の詳細は冒頭の docstring を、パラメータ schema は [CLAUDE.md](CLAUDE.md) を参照。
+
+### Setup（scripts 用）
+
+scripts / 実験用の dev venv は `dfs2026-dev` を使う（notebook 用 `aidemo2026` に lint / type-check 等の dev tool を足したもの）:
 
 ```bash
 python3 -m venv ~/.venvs/dfs2026-dev
 source ~/.venvs/dfs2026-dev/bin/activate
-python -m pip install -U pip wheel setuptools
-python -m pip install -U torch torchvision torchaudio
-python -m pip install -U diffusers transformers accelerate safetensors pillow matplotlib pandas huggingface_hub ipykernel
-python -m pip check
-python -m pip freeze > requirements-dev.txt
+pip install -U pip wheel
+pip install -r requirements-dev.txt
 ```
 
-Mac (Apple Silicon) では PyTorch wheel が MPS 対応で入る。CUDA 環境では公式の case に応じて index URL を切り替える。
-
-## Run SD1.5
-
-二系統の生成 script を用意してある。
-
-### 01: 超安全策 (`01_sd15_generate_smoke.py`)
-
-Diffusers / HF 公式の基本例に最も近い構成。dtype / safety_checker / attention slicing /
-生成パラメータ (size, steps, guidance) は**コードにハードコード**してあり、config からは
-`common.{prompt, negative_prompt, seed}` だけを読む (`models.sd15` は読まない)。
-
-- MPS: `torch.float32` (公式 docs の基本例 + 重みの素 dtype と一致)
-- CUDA: `torch.float16` (CUDA では fp16 が安定)
-- CPU: `torch.float32`
-- `safety_checker`: **ON のまま** (デフォルト挙動)
-- MPS のときだけ `enable_attention_slicing()`
+### Scripts の使い方
 
 ```bash
 source ~/.venvs/dfs2026-dev/bin/activate
 python scripts/00_env_check.py
-python scripts/01_sd15_generate_smoke.py
-```
-
-出力:
-
-```text
-outputs/sd15_generate_smoke.png
-outputs/sd15_generate_smoke_summary.json
-outputs/sd15_generate_smoke.txt
-```
-
-### 02: 普段使う標準版 (`02_sd15_generate.py`)
-
-Apple Silicon / MPS のコミュニティで広く使われる実用パターン。基本 fp16 + safety_checker 外し +
-attention slicing + 任意で VAE のみ fp32 override (= `--no-half-vae` 相当)。
-設定は `scripts/diffusers_probe.json` の `common` + `models.sd15` から読む。
-
-```bash
-source ~/.venvs/dfs2026-dev/bin/activate
 python scripts/02_sd15_generate.py
+python scripts/10_quickgen.py --models sd15,sdxl_base --prompt-sets witch --list
 ```
 
-`models.sd15` の中身:
+## Documentation map
 
-```json
-"models": {
-  "sd15": {
-    "model_id": "stable-diffusion-v1-5/stable-diffusion-v1-5",
-    "width": 512,
-    "height": 512,
-    "num_inference_steps": 20,
-    "guidance_scale": 7.5,
+実験レポート md は `docs/` 配下にある。**GitHub** または **`Cmd+Shift+V`（VS Code / Cursor の Markdown Preview）** で読むのが見やすい（KaTeX 数式が render される）。
 
-    "mps_dtype": "float16",
-    "cuda_dtype": "float16",
-    "cpu_dtype": "float32",
-    "disable_safety_checker": true,
-    "enable_attention_slicing_on_mps": true,
-    "vae_fp32_override": false
-  }
-}
-```
+- [docs/00-07_models_and_outputs.md](docs/00-07_models_and_outputs.md) — scripts 00–07 のモデル一覧・出力・参考文献をまとめた総合レポート
+- [docs/00b_sd15_mps_fp16_probe.ipynb](docs/00b_sd15_mps_fp16_probe.ipynb) — SD1.5 の MPS + fp16 での黒画像問題の切り分け（真因は attention slicing × safety_checker）
+- [docs/01b_sdxl_base_mps_fp16_probe.ipynb](docs/01b_sdxl_base_mps_fp16_probe.ipynb) — SDXL Base の MPS + fp16 検証
 
-出力:
+## Notebook を編集して commit する場合（開発者向け）
 
-```text
-outputs/sd15_generate.png
-outputs/sd15_generate_summary.json
-outputs/sd15_generate.txt
-```
-
-ターミナルには `device`, `dtype`, `safety_checker`, `model_id`, 各 elapsed time が表示される。
-
-### 01 と 02 の使い分け
-
-- **何かおかしい / 動作確認したい** → 01。何も悩まずに動く。
-- **普段使う / 設定を変えて挙動を見たい** → 02。fp16/fp32 や safety_checker on/off を試せる。
--「公式デフォルト」と「速度最適化 + 罠の知識」を分けて観察したいときも 01/02 を順に見る。
-
-### 将来モデルを増やすとき
-
-`scripts/diffusers_probe.json` の `models` 配下に `sdxl`, `flux_schnell` などのキーを足し、
-対応する script (`03_sdxl_generate.py` 等) を書く。各 script は冒頭で `MODEL_KEY = "sdxl"` のように
-対象キーを指定する。`common` (prompt / negative_prompt / seed) はモデル間で使い回せる。
-
-## Hugging Face access
-
-SD1.5 は通常 anonymous で download できるが、もし gated repo / access denied が起きた場合は:
+ノートを動かすだけなら不要だが、`.ipynb` に変更を加えて git commit する人は、**clone 直後に 1 回**以下を実行する:
 
 ```bash
-hf auth login
+source ~/.venvs/aidemo2026/bin/activate
+nbstripout --install --keep-id
 ```
 
-でログインし、Hugging Face のモデルページで利用条件を承認しておく。
-**token をファイルに保存したり、ターミナル出力に貼り付けたりしないこと。**
+これは `.git/config` に notebook 用 filter を登録し、`*.ipynb` の output セルを commit 時に自動除去する設定（`--keep-id` はセル UUID を保持）。設定しないと出力付きノートをそのまま commit してリポジトリが肥大化する。
 
-## 注意事項
+## Notes
 
-- 初回実行はモデル download 時間（数百 MB）が混ざるため、**生成時間の測定は 2 回目以降の値を参考にする**こと。
-- MPS で OOM や極端な遅さが出る場合は、一時的に `width=384, height=384, num_inference_steps=10` 等に下げて smoke 確認してよい（その場合は config と summary に実際の値を明記する）。
-- 完成版レポートで使う画像は `outputs/` から `docs/images/` に **cp**（mv ではない）すること。`docs/` と `docs/images/` は Git 管理対象。
+- このリポジトリでは Diffusers のソースコードを改変しない（pip install 版を使う）。source-level の tracing / 改変が必要な場合は別の workspace（editable install）を使う。
+- モデル重みは Hugging Face cache に置き、workspace 内には保存しない。
 
-### 既知の挙動: SD1.5 + MPS + fp16 で safety_checker が誤発火する
+## 謝辞
 
-Apple Silicon の MPS backend で SD1.5 を `torch.float16` で動かすと、画像 tensor 自体は
-0–1 の健全な値（NaN なし）になるが、**safety_checker (CLIP-based) の内部計算が fp16 で不安定**になり、
-NSFW を誤判定して**黒画像**を返すケースが多い（seed や prompt を変えても抜けにくい）。
+本 workspace は以下の open-source プロジェクトと公開モデルに依拠している（各モデルの利用条件は各モデルカードのライセンスを参照）:
 
-この workspace ではこれを 2 つの script で住み分けている:
+- **[Diffusers](https://github.com/huggingface/diffusers)** (Hugging Face / Apache-2.0) — pipeline API、scheduler、attention processor、VAE 等
+- **[Transformers](https://github.com/huggingface/transformers)** (Hugging Face / Apache-2.0) — CLIP text encoder / tokenizer
+- **[Stable Diffusion 1.5](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5)**（CreativeML Open RAIL-M）— nb00 の主対象
+- **[SDXL Base 1.0](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)**（Stability AI）— nb01 / nb02 の主対象
+- **[SDXL Turbo](https://huggingface.co/stabilityai/sdxl-turbo)** / **[FLUX.1-schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell)** / **[Stable Diffusion 3.5 Medium](https://huggingface.co/stabilityai/stable-diffusion-3.5-medium)** / **[Qwen-Image](https://huggingface.co/Qwen/Qwen-Image)** — scripts の対象モデル
+- **[SDXL-Lightning](https://huggingface.co/ByteDance/SDXL-Lightning)**（ByteDance）/ **[Animagine XL 3.1](https://huggingface.co/cagliostrolab/animagine-xl-3.1)** 等 — nb01 の LoRA / FT 派生例
+- **[PEFT](https://github.com/huggingface/peft)** (Hugging Face / Apache-2.0) — LoRA 適用
+- **matplotlib / scikit-learn / NumPy / Pillow** — 可視化・数値処理
 
-- **01 (smoke / safe)**: MPS で `float32` を選び、safety_checker は ON のまま保持する。黒画像にはならない。
-- **02 (generate / 普段使い)**: MPS で `float16` を選び、`disable_safety_checker: true` で safety_checker を外す。
-  これで誤発火の問題ごと回避する（コミュニティの実用標準パターン）。
-  さらに本当に VAE が NaN を出す既知ケース対策に `vae_fp32_override: true` を用意してあり、
-  これは AUTOMATIC1111 の `--no-half-vae` 相当（VAE のみ fp32 化 + decode 前に latent を fp32 化）。
-
-参考（実測値、本機 M4 Max, 512×512, 20 step, seed=42）:
-
-| script | dtype | safety_checker | generation time |
-|---|---|---|---|
-| 01 smoke | fp32 | ON | ~5.2 s |
-| 02 generate (fp16, safety off) | fp16 | OFF | ~4.3 s |
-| 02 generate (fp16 + vae_fp32) | fp16 + VAE fp32 | OFF | ~4.3 s |
-
-CUDA 環境では `torch.float16` が安定して動作するため、上記の安全策は不要（02 をそのまま使えばよい）。
-
-## License / Credits
-
-`stable-diffusion-v1-5/stable-diffusion-v1-5` は CreativeML Open RAIL-M ライセンス。利用条件はモデルカードを参照。
+本 repository 自体は MIT License（[LICENSE](LICENSE)）で公開している。

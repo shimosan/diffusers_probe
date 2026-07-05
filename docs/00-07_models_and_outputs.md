@@ -591,7 +591,7 @@ python scripts/04_sdxl_turbo_generate.py
 
 01-07 (single-shot 流) の生成物は `outputs/00-07_legacy/<basename>.{png,_summary.json,.txt}` に出力される (旧仕様では `outputs/` 直下に置いていたが、08 以降の subdir 流と混ざって見通しが悪くなったため 2026-05-25 にまとめた)。
 
-凍結 run: `runs/2026-05-23_clean/` (AC + cache warmed + caffeinate)。`runs/` は git 管理外で Dropbox sync で個人保全。
+凍結 run: `runs/2026-05-23_clean/` (AC + cache warmed + caffeinate)。`runs/` は git 管理外 (ローカル保全)。
 
 | script | 主な出力 | runs/2026-05-23_clean |
 |---|---|:---:|
@@ -1111,7 +1111,7 @@ FLUX.1 は [公式 model card](#flux-schnell-card) で 12B rectified flow transf
 
 ## 17. 参考文献
 
-本文中の引用 `[Author Year](#anchor)` リンクは、この節の該当エントリにジャンプする。論文 PDF はローカル library にも保存済 (`~/Dropbox/references/paper2026/diffusion/`)。
+本文中の引用 `[Author Year](#anchor)` リンクは、この節の該当エントリにジャンプする。
 
 ### 拡散モデル / score-based
 

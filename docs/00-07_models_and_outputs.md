@@ -48,7 +48,7 @@ Scripts:
 - **VAE** = Variational Autoencoder (画素 ↔ latent 空間の符号化器)
 - **UNet** = U-shaped neural network (encoder-decoder + skip connection、SD1.5/SDXL の denoising 中核)
 - **CLIP** = Contrastive Language-Image Pretraining (OpenAI のテキスト-画像 alignment encoder)
-- **CFG** = Classifier-Free Guidance (条件付け強度を強める手法)
+- **CFG** = Classifier-Free Guidance (classifier を使わず、条件付き/無条件の予測を $w$ で外挿して条件への追随を強める手法)
 - **MMDiT** = Multi-Modal Diffusion Transformer (FLUX/SD3.5/Qwen の新型 backbone)
 - **ADD** = Adversarial Diffusion Distillation (SDXL Turbo の蒸留手法)
 - **DDPM** = Denoising Diffusion Probabilistic Models (Ho+ 2020、SD1.5/SDXL が依拠する古典的**拡散モデル**)
@@ -92,7 +92,7 @@ Scripts:
 ポイント:
 
 - **prompt / negative_prompt / seed / 解像度 (1024x1024) は全モデル共通**。比較条件を揃えるのが目的。
-- **steps / guidance はモデル固有**: SDXL Turbo と FLUX.1-schnell は distilled モデルで 1-4 step が前提、**CFG (Classifier-Free Guidance、条件付け強度を強める手法)** も 0 が前提。SD3.5 は 4.5、Qwen は 4.0 など、モデルが想定する値を尊重。
+- **steps / guidance はモデル固有**: SDXL Turbo と FLUX.1-schnell は distilled モデルで 1-4 step が前提、**CFG (Classifier-Free Guidance; 詳細は上の凡例参照)** も 0 が前提。SD3.5 は 4.5、Qwen は 4.0 など、モデルが想定する値を尊重。
 - **dtype は MPS 上の実測で決定**: 今回の検証環境 (M4 Max + torch 2.12.0 + diffusers 0.38.0) では、SDXL 系は MPS で fp16/bf16 が **NaN** (Not a Number、無効値) になったため fp32。FLUX / SD3.5 / Qwen は bf16 で安定動作。詳細は各 Chapter で説明。
 
 共通ユーティリティは [`scripts/common.py`](../scripts/common.py) にあり、主に以下を提供:
@@ -356,7 +356,7 @@ Black Forest Labs (Stable Diffusion 原作者陣) が 2024-08 に公開した、
 
 1. **MPS で bf16 が動く**: 本資料の SDXL 検証 (Ch.03) で fp32 が必要だったのと対照的。本資料の検証範囲では MMDiT 系の方が MPS との相性が良い印象 (一般化はしない)。
 2. **生成時間は SDXL Base と同程度 (49.85s vs 51.77s)**: 4 step だが、1 step あたりの計算量が SDXL の 30 step 分に近い (~13B パラメータ vs SDXL ~3B、step あたり ~4 倍重い)。SDXL Turbo (4.40s) よりは明らかに遅いが、品質は FLUX のほうが上。
-3. **プロンプト追随性が高い**: 「simple illustration」がきっちり反映される。SDXL 系よりも text encoder (**T5-xxl** = Text-to-Text Transfer Transformer の最大版、~4.7B パラメータの Google 製 encoder-decoder LLM) が強力なため。
+3. **プロンプト追随性が高い**: 「simple illustration」がきっちり反映される。SDXL 系よりも text encoder (**T5-xxl** = Text-to-Text Transfer Transformer の最大版。FLUX が使うのはその **encoder 部分**で ~4.7B パラメータ。Google 製で、T5-XXL の full encoder-decoder は ~11B 規模＝「T5-XXL 全体が 4.7B」の意味ではない) が強力なため。
 4. **download コストが大きい**: ~24 GB。再現実験のたびに `caffeinate -i` を忘れずに。
 
 ### 出力ファイル
@@ -1031,9 +1031,11 @@ Rectified Flow / Flow Matching の周辺に、**少 step 生成**を目的とす
 
 | 手法 | 元論文 | 目的 | アプローチ |
 |---|---|---|---|
-| **InstaFlow** | [Liu et al. 2023.09](#liu-2023-instaflow) | 1-step 生成 | Rectified Flow を 2 回 reflow した上で 1-step distillation |
+| **InstaFlow** | [Liu et al. 2023.09](#liu-2023-instaflow) | 1-step 生成 | Rectified Flow を 1 回 reflow (= 2-Rectified Flow) した上で 1-step distillation |
 | **PeRFlow** | [Yan et al. 2024.05](#yan-2024-perflow) | 4-step 生成 | Piecewise Rectified Flow、軌道を区間ごとに直線化 |
 | **Consistency Models** | [Song et al. 2023.03](#song-2023-consistency) | 1-2 step 生成 | 「任意の $t$ から $x_1$ を 1 step で予測」を整合性損失で訓練 |
+
+> 注: InstaFlow の本命は **1 回 reflow (= 2-Rectified Flow) + 1-step distillation**。3-Rectified Flow (reflow 2 回) は論文 §4.2 Multiple Reflow の追加実験 ([Liu et al. 2023](#liu-2023-instaflow) 本文)。
 
 **InstaFlow / PeRFlow** は Rectified Flow を基盤として「軌道の特定の構造を陽に利用して step を減らす」直系拡張。一方**Consistency Models は別系統**で、もともと score-based diffusion の文脈で提案され、pretrained diffusion model からの distill としても standalone training としても訓練できる ([Song et al. 2023](#song-2023-consistency))。FLUX.1-schnell は、[公式 model card](#flux-schnell-card) で **latent adversarial diffusion distillation (LADD)** により 1-4 step 生成が可能と明記されている (上記いずれとも別の蒸留手法)。
 

@@ -60,7 +60,7 @@ lecture ノートで扱う主対象:
 - **[02_sdxl_base_inside.ipynb](lecture/02_sdxl_base_inside.ipynb)**
   SDXL Base の内部処理を「実物のコードの中身を開いて」見る。tokenize → text encode → prompt embedding の地形図（PCA / t-SNE）→ 手動 scheduler ループ → cross-attention probe → guidance scale と negative prompt → VAE roundtrip。3 年前（2023）の SD1.5 デモの cross-attention 可視化を SDXL Base で組み直したもの。
 
-  [実行結果を見る](rendered/02_sdxl_base_inside.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/02_sdxl_base_inside.ipynb)（メモリ 64GB 以上推奨・実行 ~12 分 / 初回 DL ~14GB）
+  [実行結果を見る](rendered/02_sdxl_base_inside.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/02_sdxl_base_inside.ipynb)（実行 Mac M4 Max ~12 分 / Windows・Colab L4 ~3 分・初回 DL ~7GB(fp16)〜14GB(fp32)・ローカルは メモリ 64GB 以上、**Colab は L4 推奨**〈T4 は GPU RAM 不足〉）
 
 ---
 
@@ -83,7 +83,7 @@ pip install torch torchvision                 # Mac (Apple Silicon) / GPU 無し
 pip install -r requirements.txt
 ```
 
-モデルは各ノートの初回実行時に Hugging Face cache へダウンロードされる（SD1.5 ~5GB / SDXL Base ~14GB）。後続の起動時は cache から読み出される。
+モデルは各ノートの初回実行時に Hugging Face cache へダウンロードされる（SD1.5 ~5GB / SDXL Base は fp16 で ~7GB・fp32 で ~14GB）。後続の起動時は cache から読み出される。
 
 > **Colab で動かす場合はこの setup は不要**です。torch 等は最初から入っており、各ノート冒頭の「環境セットアップ」セルが Colab を自動判定して必要分だけ `!pip install` します。ノートを開いて「ランタイム → すべて実行」するだけです。
 

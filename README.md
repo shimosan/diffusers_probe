@@ -26,20 +26,9 @@ lecture ノートで扱う主対象:
 
 ## Repository structure
 
-| Path | Git | Contents |
-|---|---|---|
-| `lecture/` | ✓ | Jupyter Notebook（主成果物、各ノート self-contained）|
-| `rendered/` | ✓ | 実行済みノート（output 込み、GitHub 閲覧用）|
-| `scripts/` | ✓ | 番号付き probe / 生成 script 群（後述）|
-| `docs/` | ✓ | 実験レポート md と参照画像 `docs/images/` |
-| `images/` | ✓ | README 用 showcase 画像 |
-| `outputs/` | ✗ | script の生成物（PNG / JSON 等）。再生成可能で永続性なし |
-| `runs/` | ✗ | 凍結 archive（実験 1 セットの完全パッケージ）|
-| `notes/` | ✗ | 作業ノート（`*.md`）|
-| `scratch/` | ✗ | 自由な試行錯誤の作業領域 |
-| `inbox/` | ✗ | 外部由来の旧資料（保存するが非公開）|
+主な公開物は `lecture/`（ノート本編）と `rendered/`（output 込みの実行済み版）。ほかに `scripts/`（probe / 生成スクリプト）・`docs/`（実験レポート md + `docs/images/`）・`images/`（README 図）。
 
-詳細な作業方針は [CLAUDE.md](CLAUDE.md) を参照。
+作業用の gitignore ディレクトリ（`outputs/ runs/ notes/ scratch/ inbox/ tmp/`）を含む全ディレクトリの役割・保存期間、および作業方針は [CLAUDE.md](CLAUDE.md) の「フォルダ役割定義」を参照。
 
 ---
 
@@ -55,12 +44,12 @@ lecture ノートで扱う主対象:
 - **[01_sdxl_base_intro.ipynb](lecture/01_sdxl_base_intro.ipynb)**
   00 とほぼ同じ手順を SDXL Base 1.0 で繰り返し、SD1.5 との違いを見比べる。1〜7 章で基本構造、8〜10 章で SDXL 系派生（SDXL Lightning 蒸留 / Animagine XL / style LoRA stacking）。
 
-  [実行結果を見る](rendered/01_sdxl_base_intro.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/01_sdxl_base_intro.ipynb)（GPU・無料 T4 可）
+  [実行結果を見る](rendered/01_sdxl_base_intro.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/01_sdxl_base_intro.ipynb)（GPU・**無料 T4 不可、L4 推奨**）
 
 - **[02_sdxl_base_inside.ipynb](lecture/02_sdxl_base_inside.ipynb)**
   SDXL Base の内部処理を「実物のコードの中身を開いて」見る。tokenize → text encode → prompt embedding の地形図（PCA / t-SNE）→ 手動 scheduler ループ → cross-attention probe → guidance scale と negative prompt → VAE roundtrip。3 年前（2023）の SD1.5 デモの cross-attention 可視化を SDXL Base で組み直したもの。
 
-  [実行結果を見る](rendered/02_sdxl_base_inside.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/02_sdxl_base_inside.ipynb)（実行 Mac M4 Max ~12 分 / Windows・Colab L4 ~3 分・初回 DL ~7GB(fp16)〜14GB(fp32)・ローカルは メモリ 64GB 以上、**Colab は L4 推奨**〈T4 は GPU RAM 不足〉）
+  [実行結果を見る](rendered/02_sdxl_base_inside.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/02_sdxl_base_inside.ipynb)（実行 Mac M4 Max ~12 分 / Windows・Colab L4 ~3 分・初回 DL ~7GB(fp16)〜14GB(fp32)・ローカルは メモリ 64GB 以上、**Colab は無料 T4 不可・L4 推奨**）
 
 ---
 

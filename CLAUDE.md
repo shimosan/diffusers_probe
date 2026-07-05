@@ -132,6 +132,7 @@ git 管理対象と git 管理外 (gitignored) に分かれ、保存期間 (tier
 | `docs/` | ○ | — | 補助 reference (フォーマット不問: ipynb / md / pdf / pptx 等) |
 | `docs/images/` | ○ | — | docs/ で参照する figure (outputs/ から cp) |
 | `rendered/` | ○ | — | lecture の実行済み notebook (output 込みコピー、GitHub 閲覧用) |
+| `images/` | ○ | — | README 用 showcase 画像 (outputs/ から cp) |
 | `inbox/` | × | T0 | 外部由来 永続資料 (3 年前 notebook、論文 PDF、共有された他人の素材など) |
 | `notes/` | × | T1 | 内部生成 永続 (md 中心の知見記録: handoff、observation、curated 実験記録) |
 | `runs/` | × | T2 | 凍結 archive (実験 1 セットの完全パッケージ: input config + 全 output) |

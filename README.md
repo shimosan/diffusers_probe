@@ -37,7 +37,7 @@ lecture ノートで扱う主対象:
 | `runs/` | ✗ | 凍結 archive（実験 1 セットの完全パッケージ）|
 | `notes/` | ✗ | 作業ノート（`*.md`）|
 | `scratch/` | ✗ | 自由な試行錯誤の作業領域 |
-| `inbox/` | ✗ | 外部由来の旧講義資料（保存するが非公開）|
+| `inbox/` | ✗ | 外部由来の旧資料（保存するが非公開）|
 
 詳細な作業方針は [CLAUDE.md](CLAUDE.md) を参照。
 
@@ -58,7 +58,7 @@ lecture ノートで扱う主対象:
   [実行結果を見る](rendered/01_sdxl_base_intro.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/01_sdxl_base_intro.ipynb)（GPU・無料 T4 可）
 
 - **[02_sdxl_base_inside.ipynb](lecture/02_sdxl_base_inside.ipynb)**
-  SDXL Base の内部処理を「実物のコードの中身を開いて」見る。tokenize → text encode → prompt embedding の地形図（PCA / t-SNE）→ 手動 scheduler ループ → cross-attention probe → guidance scale と negative prompt → VAE roundtrip。3 年前（2023）の SD1.5 講義の cross-attention 可視化を SDXL Base で組み直したもの。
+  SDXL Base の内部処理を「実物のコードの中身を開いて」見る。tokenize → text encode → prompt embedding の地形図（PCA / t-SNE）→ 手動 scheduler ループ → cross-attention probe → guidance scale と negative prompt → VAE roundtrip。3 年前（2023）の SD1.5 デモの cross-attention 可視化を SDXL Base で組み直したもの。
 
   [実行結果を見る](rendered/02_sdxl_base_inside.ipynb)・[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/shimosan/diffusers_probe/blob/main/lecture/02_sdxl_base_inside.ipynb)（メモリ 64GB 以上推奨・実行 ~12 分 / 初回 DL ~14GB）
 

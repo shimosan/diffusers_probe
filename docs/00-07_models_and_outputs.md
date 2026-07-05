@@ -17,7 +17,7 @@ Scripts:
 
 ## 1. このドキュメントの位置づけ
 
-このリポジトリ ([diffusers_probe](../README.md)) は、Hugging Face Diffusers で **画像生成モデルの内部を観察する** ことが最終目的です。最初のステップとして、**主要 6 モデルを Mac (M4 Max, **MPS** = Metal Performance Shaders、Apple Silicon の GPU バックエンド) で実際に動かしてみて、どれが講義デモに使えるか**を見極めるのが本ドキュメントの内容です。
+このリポジトリ ([diffusers_probe](../README.md)) は、Hugging Face Diffusers で **画像生成モデルの内部を観察する** ことが最終目的です。最初のステップとして、**主要 6 モデルを Mac (M4 Max, **MPS** = Metal Performance Shaders、Apple Silicon の GPU バックエンド) で実際に動かしてみて、どれがデモに使えるか**を見極めるのが本ドキュメントの内容です。
 
 本資料で扱う 6 モデルを以下に一覧する (詳細比較は Chapter 11、技術解説は Chapter 16):
 
@@ -211,7 +211,7 @@ def pick_device_and_dtype():
 
 ![sd15_1024_fp32](images/sd15_generate_1024_fp32.png)
 
-**Figure 2**: SD1.5, 1024×1024, fp32。**複数のロボットが画面いっぱいに並ぶ構図破綻**。これは SD1.5 が 512 で訓練されているために起こる典型的な現象で、講義的には**「訓練解像度から外れるとモデルが破綻する」**ことを示す良い反例素材になります。
+**Figure 2**: SD1.5, 1024×1024, fp32。**複数のロボットが画面いっぱいに並ぶ構図破綻**。これは SD1.5 が 512 で訓練されているために起こる典型的な現象で、**「訓練解像度から外れるとモデルが破綻する」**ことを示す良い反例素材になります。
 
 ### 結果 — Pass B: 512×512 fp16
 
@@ -232,10 +232,10 @@ def pick_device_and_dtype():
 1. **解像度がモデル品質を支配する場面がある**: 同じ seed・同じ prompt でも、SD1.5 が訓練されていない 1024 に拡張するだけで破綻する。これは scheduler や guidance 等のパラメータをいじっても解決しない。
 2. **fp16 vs fp32 の選択**: SD1.5 は 512 なら fp16 で十分速い (4.36s vs 49.84s で **10 倍以上の差**)。fp32 は「本来の解像度から外れている = 構図がもう破綻している」ケースの救済にしか使えない。
 
-### 講義での扱い
+### デモでの扱い
 
 - **本命は Pass B (512×512)**: SD1.5 が想定する条件。
-- **Pass A は教材として残す**: 「モデルを訓練解像度外で使うと壊れる」の例。
+- **Pass A は資料として残す**: 「モデルを訓練解像度外で使うと壊れる」の例。
 
 ### 出力ファイル
 
@@ -291,7 +291,7 @@ def pick_device_and_dtype():
 
 ### 背景: distilled / few-step モデルとは
 
-通常 Diffusion は 20–50 step の反復で画像を生成しますが、**ADD = Adversarial Diffusion Distillation** (敵対的拡散蒸留) で、SDXL の生成プロセスを 1–4 step に蒸留した版が SDXL Turbo。ADD は教師 diffusion model からの **score distillation loss** と **adversarial loss** の組み合わせで構成される ([Sauer et al. 2023](#sauer-2023))。CFG (Classifier-Free Guidance) も使わない (`guidance_scale=0.0`) のが特徴。**講義デモで「待ち時間が短い」のは強い**ので採用候補として重要。
+通常 Diffusion は 20–50 step の反復で画像を生成しますが、**ADD = Adversarial Diffusion Distillation** (敵対的拡散蒸留) で、SDXL の生成プロセスを 1–4 step に蒸留した版が SDXL Turbo。ADD は教師 diffusion model からの **score distillation loss** と **adversarial loss** の組み合わせで構成される ([Sauer et al. 2023](#sauer-2023))。CFG (Classifier-Free Guidance) も使わない (`guidance_scale=0.0`) のが特徴。**デモで「待ち時間が短い」のは強い**ので採用候補として重要。
 
 ### 実装の要点
 
@@ -316,7 +316,7 @@ def pick_device_and_dtype():
 ### 観察
 
 1. **12 倍速**: SDXL Base 51.77s に対して Turbo は 4.40s。30 step → 4 step + CFG 無効 (1 step あたり 2 forward → 1 forward) で、ステップ数比 (7.5x) と CFG 効果 (≈2x) を合わせるとほぼ理論値 (実測はさらに速い)。
-2. **品質は SDXL Base に肉薄**: 構図は同等、ディテールはやや単純化されている程度。**講義デモなら十分**。
+2. **品質は SDXL Base に肉薄**: 構図は同等、ディテールはやや単純化されている程度。**デモなら十分**。
 3. **CFG 無しは prompt の細かい指示が効きにくい**: 「university classroom」「simple illustration」の指示反映度は SDXL Base のほうがやや上。
 
 ### 出力ファイル
@@ -432,7 +432,7 @@ Alibaba が **2025-08** に公開した **20B MMDiT image foundation model** (Ap
 ### 観察
 
 1. **テキスト描画が突出**: 黒板の "Artificial Intelligence" がリーダブル。これは他のどのモデルにも無い特徴。
-2. **生成時間は約 16 分**: **講義中のリアルタイム生成は無理**だが、デモ前に事前生成しておくなら現実的な範囲。
+2. **生成時間は約 16 分**: **デモ中のリアルタイム生成は無理**だが、デモ前に事前生成しておくなら現実的な範囲。
 3. **モデルサイズ (~58 GB) が大きすぎる**: M4 Max 64GB でぎりぎり動く。CPU offload を使えば更に安定するかも (今回未検証)。
 4. **`load_time` も 53s と長め**: 他モデルが 3-18s なのに対して。20B モデルの初期化と MPS 上の memory allocation に時間がかかる。
 
@@ -476,15 +476,15 @@ seed: 42
 | 06 | SD3.5 Medium | bf16 | 1024 | 28 | 4.5 | 8.27 s | 191.04 s | ~17 GB |
 | 07 | Qwen-Image | bf16 | 1024 | 30 | 4.0 | 53.16 s | 980.07 s (16m20s) | **~58 GB** |
 
-⚡ 講義デモで「数秒で 1 枚」のリアルタイム性が確保できるのは 02-B (SD1.5 512) と 04 (SDXL Turbo) の 2 つ。
+⚡ デモで「数秒で 1 枚」のリアルタイム性が確保できるのは 02-B (SD1.5 512) と 04 (SDXL Turbo) の 2 つ。
 
 ### 11-3. アーキテクチャ・位置づけ比較
 
-各モデルの内部構造の世代と、講義での扱い方を一覧。**SD1.5 系 → SDXL 系 → MMDiT 系** という年代順の進化と、**多 step + CFG vs 蒸留 (few-step + CFG なし)** の 2 軸で整理できる。
+各モデルの内部構造の世代と、デモでの扱い方を一覧。**SD1.5 系 → SDXL 系 → MMDiT 系** という年代順の進化と、**多 step + CFG vs 蒸留 (few-step + CFG なし)** の 2 軸で整理できる。
 
 「生成モデル系統」列について: **DDPM 系 (拡散モデル) と Flow Matching / Rectified Flow 系は数学的には別ファミリ**。前者はガウスノイズを段階的に加える Markov 過程の逆向き ([Ho et al. 2020](#ho-2020))、後者はノイズとデータを補間して velocity を学ぶ枠組み ([Lipman et al. 2022](#lipman-2022); [Liu et al. 2022](#liu-2022))。表の列は厳密な sampler 名ではなく、訓練・生成モデルの大まかな系統を示す **shorthand**。コミュニティでは "diffusion-based" と総称されることが多いが、本ドキュメントでは区別して書く。
 
-| script | モデル | backbone | 生成モデル系統 | text encoder | 講義での位置づけ |
+| script | モデル | backbone | 生成モデル系統 | text encoder | デモでの位置づけ |
 |---|---|---|---|---|---|
 | 01 | SD1.5 smoke | UNet (~860M) | DDPM | CLIP-L | 動作確認 (smoke test) |
 | 02-A | SD1.5 (1024) | UNet (~860M) | DDPM | CLIP-L | **反例**: 訓練解像度外で破綻 |
@@ -499,7 +499,7 @@ seed: 42
 - **SDXL Turbo**: ADD = Adversarial Diffusion Distillation ([Sauer+ 2023](#sauer-2023))。教師 diffusion model からの **score distillation loss** (Score Distillation Sampling, SDS) と **adversarial loss** (discriminator) を組み合わせて 1-4 step 化。
 - **FLUX.1-schnell**: 公式 model card によれば **latent adversarial diffusion distillation (LADD)** で 1-4 step 生成 ([black-forest-labs/FLUX.1-schnell](#flux-schnell-card))。
 
-#### この表からの示唆 (講義での材料)
+#### この表からの示唆 (デモでの材料)
 
 1. **アーキテクチャ + 生成手法の世代交代**: SD1.5 / SDXL 世代は **UNet + DDPM** (古典的な拡散モデル: ノイズを段階的に加える Markov 過程の逆向き)、FLUX / SD3.5 世代は **MMDiT + Rectified Flow** (拡散ではなく flow matching: ノイズとデータを直線補間して velocity を学ぶ別ファミリ)。Qwen-Image は **MMDiT / flow-matching 系** (diffusers 実装は `FlowMatchEulerDiscreteScheduler`)。**LLM と同じ transformer 系統に画像生成も収束**している。
 2. **蒸留で 4 step 化**: SDXL Turbo と FLUX.1-schnell はいずれも蒸留版で 4 step + CFG なしを実現。**待ち時間を 1/10 にする現代の鍵**。
@@ -508,28 +508,28 @@ seed: 42
 
 ---
 
-## 12. 講義での採用方針
+## 12. デモでの採用方針
 
 ### 12-1. 結論
 
 **「待ち時間が短く、品質も高く、配布難度が低い」モデルを優先**します。優先順位:
 
-1. **SDXL Turbo (04)** — メインのリアルタイムデモ用。1024×1024 を **4.4 秒**、講義中に何度でも prompt を変えて試せる。download も SDXL Base と共通の cache。
+1. **SDXL Turbo (04)** — メインのリアルタイムデモ用。1024×1024 を **4.4 秒**、デモ中に何度でも prompt を変えて試せる。download も SDXL Base と共通の cache。
 2. **SDXL Base (03)** — 「Turbo は 30 step → 4 step に蒸留した版」という関係を示すための比較対象。約 52 秒なので 1–2 回見せる程度。
-3. **SD1.5 Pass B (02-B、512 fp16)** — レガシーモデル参照、4.4 秒と高速、講義の「最初の歴史紹介」スライド用。SDXL Turbo と並べて「512 と 1024 の解像度の差」を見せる対比にも使える。
-4. **SD1.5 Pass A (02-A、1024 fp32)** — **教材としての反例**。「訓練解像度の外で動かすとモデルが破綻する」を視覚的に示す。
-5. **FLUX.1-schnell (05)** — 「現代の高品質モデル」枠。MPS で 4-step **50 秒**。HF gated だが配布前提なら学生に `hf auth login` を踏ませてもよい。SDXL Base と同等時間で品質が一段上。
+3. **SD1.5 Pass B (02-B、512 fp16)** — レガシーモデル参照、4.4 秒と高速、デモの「最初の歴史紹介」スライド用。SDXL Turbo と並べて「512 と 1024 の解像度の差」を見せる対比にも使える。
+4. **SD1.5 Pass A (02-A、1024 fp32)** — **資料としての反例**。「訓練解像度の外で動かすとモデルが破綻する」を視覚的に示す。
+5. **FLUX.1-schnell (05)** — 「現代の高品質モデル」枠。MPS で 4-step **50 秒**。HF gated だが配布前提なら利用者に `hf auth login` を踏ませてもよい。SDXL Base と同等時間で品質が一段上。
 6. **SD3.5 Medium (06)** — 「もう一つの MMDiT 系列」枠。約 3 分。FLUX と比較する文脈で 1 回出す。デモのライブ再生成には遅め。
-7. **Qwen-Image (07)** — 「テキスト描画特化のモデル」枠。AC 駆動で **16 分**。リアルタイム生成は無理だが、講義の休憩時間に 1 枚回す程度なら可能。事前生成した png を出すのが安全。
+7. **Qwen-Image (07)** — 「テキスト描画特化のモデル」枠。AC 駆動で **16 分**。リアルタイム生成は無理だが、デモの合間に 1 枚回す程度なら可能。事前生成した png を出すのが安全。
 
-### 12-2. 学生に伝えるメッセージ
+### 12-2. 読者に伝えるメッセージ
 
 - 同じ prompt・同じ seed でも、**モデル選択次第で出力は劇的に変わる**: 構図、画風、テキスト描画能力すべて。Figure 1–8 がその証拠。
 - **少ない step で同等品質を出す技術 (distillation)** がここ 2 年の進展の中心。SDXL Turbo / FLUX.1-schnell はその代表。
 - **モデルの大きさ ≠ Mac で動かしやすさ**: Qwen-Image (20B) は Mac M4 Max でも 1 枚 16 分。普段使うモデルは「自分の machine で何分待てるか」で選ぶ。
 - **同じ seed なら再現可能**: 本ドキュメントの画像は seed=42 で生成。再実行すれば (同じ環境なら) 同じ絵が出る。
 
-### 12-3. 講義で実機を動かすときの推奨手順
+### 12-3. 実機を動かすときの推奨手順
 
 ```bash
 # venv 起動
@@ -544,15 +544,15 @@ python scripts/01_sd15_generate_smoke.py
 # 本命のリアルタイムデモ (約 4 秒)
 python scripts/04_sdxl_turbo_generate.py
 
-# 学生に prompt を提案してもらって 04 を何度か実行
+# 参加者に prompt を提案してもらって 04 を何度か実行
 # (config の common.prompt を書き換えるか、コマンドライン引数化を後で追加)
 ```
 
-事前準備 (講義前夜):
+事前準備:
 
 - HF cache を温める (`caffeinate -i` 付きで 01〜06 を 1 回ずつ動かす)。03-06 が cache hit 状態なら load 時間は 10-20 秒に抑えられる。
 - AC 接続、他の重い process (Zoom 等) を閉じる。
-- 07 Qwen-Image は事前生成した png を準備、講義中は実機実行しない (1 枚 16 分)。
+- 07 Qwen-Image は事前生成した png を準備、デモ中は実機実行しない (1 枚 16 分)。
 
 ---
 
@@ -757,7 +757,7 @@ forward の閉形式 $x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1-\bar{\alpha}_t
 概念的には、forward chain を実際に走らせ、隣接時刻のペアを使って「ひと step ずつ undo を学ぶ」のが最も自然:
 
 ```python
-# 直感的アプローチ (実際の主流実装ではない、教材的説明)
+# 直感的アプローチ (実際の主流実装ではない、資料的な説明)
 for x_0 in dataloader:
     # 1. forward chain を Markov に実際に走らせて全状態を保存
     x_states = [x_0]
@@ -838,7 +838,7 @@ DDPM が Sohl-Dickstein 2015 から進化させた点:
 
 これら 4 つは**密接に関連する**が、目的関数・サンプリング手順・parameterization は同一ではない (A.6 の変換式は DDPM 内部の ε / x_0 / score / v parameterization 間のみ)。特に Gaussian perturbation のもとでは score prediction と noise prediction はスケール変換で対応するが、4 つの流派全体をそのまま「数学的に等価」と呼ぶのは強すぎる。**訓練の安定性・画質・実装の簡潔さで Ho 2020 (DDPM) が圧倒的に良かった**ため、**Stable Diffusion 系モデル (SD1.5, SDXL 含む) はこの DDPM 流 noise prediction の系譜で発展した**。
 
-> **講義での使い方**: 「直感的には pair undo を学ぶのが自然だが、実用では $\varepsilon$ predict が圧勝した」という対比は、**「密接に関連する定式化でも、parameterization の選択が深層学習の性能を大きく左右する」**という典型例として教材価値が高い (RNN の vanilla vs LSTM、ResNet の residual connection の話と同じ系譜)。
+> **デモでの使い方**: 「直感的には pair undo を学ぶのが自然だが、実用では $\varepsilon$ predict が圧勝した」という対比は、**「密接に関連する定式化でも、parameterization の選択が深層学習の性能を大きく左右する」**という典型例として資料価値が高い (RNN の vanilla vs LSTM、ResNet の residual connection の話と同じ系譜)。
 
 ---
 
@@ -1069,7 +1069,7 @@ FLUX.1 は [公式 model card](#flux-schnell-card) で 12B rectified flow transf
 
 **厳密には Flow Matching (FM) の方が広い概念で、Rectified Flow は CFM の中の linear-interpolant 構成**である ([Lipman et al. 2022](#lipman-2022); [Liu et al. 2022](#liu-2022))。FM と RF を同義語として扱わない。
 
-> **講義での使い方**: A.7 と並べて見ると、**2020 の DDPM、2022-2023 の Flow Matching / Rectified Flow という 2 つの大きな転換点**が見える。両者とも「直接的な定式化 (= 隣接ペア learning / CNF 最尤) より、賢い reparameterization を選んだら劇的に良くなった」というメタな共通点がある。これは「**深層生成モデルの進展は、目的関数の発明より、目的関数の reparameterization の発明によって駆動される**」という現代生成モデル研究の特徴。
+> **デモでの使い方**: A.7 と並べて見ると、**2020 の DDPM、2022-2023 の Flow Matching / Rectified Flow という 2 つの大きな転換点**が見える。両者とも「直接的な定式化 (= 隣接ペア learning / CNF 最尤) より、賢い reparameterization を選んだら劇的に良くなった」というメタな共通点がある。これは「**深層生成モデルの進展は、目的関数の発明より、目的関数の reparameterization の発明によって駆動される**」という現代生成モデル研究の特徴。
 
 ---
 
@@ -1094,9 +1094,9 @@ FLUX.1 は [公式 model card](#flux-schnell-card) で 12B rectified flow transf
 
 ---
 
-### 16-D. 講義での教える順序の提案
+### 16-D. 紹介順序の提案
 
-学生に「2020 → 2024 で生成モデルが何を捨て、何を得たか」を見せる流れ:
+読者に「2020 → 2024 で生成モデルが何を捨て、何を得たか」を見せる流れ:
 
 1. **DDPM (2020, 古典)**: ノイズ Markov 過程の逆向きを学習。理論的には変分下限の最適化、実装上は単時刻 $t$ の noise prediction MSE。
 2. **score-based の統一視点 (2021)**: DDPM, Langevin, SDE が同じ枠組みに乗ることが分かる (Song & Ermon)。

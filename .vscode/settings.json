@@ -1,12 +1,12 @@
 {
-  "python.defaultInterpreterPath": "${userHome}/.venvs/dfs2026-dev",
+  "python.defaultInterpreterPath": "${userHome}/.venvs/aidemo2026",
   "python.terminal.activateEnvironment": true,
 
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "openFilesOnly",
-  "python.analysis.diagnosticSeverityOverrides": {
-    "reportPrivateImportUsage": "none"
-  },
+
+  "notebook.diff.ignoreOutputs": true,
+  "notebook.diff.ignoreMetadata": true,
 
   "files.exclude": {
     "**/__pycache__": true,
@@ -19,11 +19,19 @@
     "logs": true,
     "cache": true,
     "tmp": true,
+    "scratch": true,
+    "notes": true,
     "**/__pycache__": true
   },
   "cursorpyright.analysis.diagnosticMode": "openFilesOnly",
   "cursorpyright.analysis.typeCheckingMode": "basic",
-  "cursorpyright.analysis.diagnosticSeverityOverrides": {
-    "reportPrivateImportUsage": "none"
-  }
+  "claude.preferredLocation": "sidebar",
+
+  "python-envs.pythonProjects": [
+    {
+      "path": ".",
+      "envManager": "ms-python.python:venv",
+      "packageManager": "ms-python.python:pip"
+    }
+  ]
 }

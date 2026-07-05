@@ -2,9 +2,13 @@
 
 Diffusers を用いた画像生成モデル内部の観察・可視化のための調査
 
+![SDXL Base denoising trajectory](images/sec6_trajectory_grid.png)
+
+**Figure 1**: SDXL Base 1.0 の denoising 生成過程（**左 → 右**）。純粋なノイズ（左端）から拡散の 30 ステップを経て画像（右端）へ。各パネルは手動 scheduler ループ途中の latent を VAE で画像に戻したもの。図はノート [02_sdxl_base_inside.ipynb](lecture/02_sdxl_base_inside.ipynb) の §6 で生成。
+
 ![SDXL Base cross-attention probe](images/sec7_7_per_token_mushrooms.png)
 
-**Figure**: SDXL Base 1.0 の cross-attention probe。生成画像の各位置が、prompt のどの単語に注目して描かれたかを単語ごとに可視化したもの。UNet の cross-attention マップを denoising 全ステップで平均し、トークン単位でヒートマップ化している。図はノート [02_sdxl_base_inside.ipynb](lecture/02_sdxl_base_inside.ipynb) の §7 で生成。（※ showcase 画像は仮。差し替え予定）
+**Figure 2**: SDXL Base 1.0 の cross-attention probe（単語 'mushrooms' への注目）。**縦（上 → 下）が denoising の生成過程**（step 0 のノイズ → step 29 の完成）、**横（左 → 右）は UNet の各 cross-attention 層**（down → mid → up、最右列は各 step で decode した画像）。各セルは 'mushrooms' への attention を PCA で RGB 3 色に落として可視化したもの。図はノート [02_sdxl_base_inside.ipynb](lecture/02_sdxl_base_inside.ipynb) の §7 で生成。
 
 ## Purpose
 

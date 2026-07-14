@@ -1157,6 +1157,9 @@ FLUX.1 は [公式 model card](#flux-schnell-card) で 12B rectified flow transf
 
 ### Production model 論文
 
+<a id="rombach-2022-ldm"></a>
+- **Rombach et al. 2022** — High-Resolution Image Synthesis with Latent Diffusion Models (LDM。SD1.x が採用した潜在拡散の原典). **CVPR 2022, pp.10674-10685**, DOI: [10.1109/CVPR52688.2022.01042](https://doi.org/10.1109/CVPR52688.2022.01042)（[CVF open access](https://openaccess.thecvf.com/content/CVPR2022/html/Rombach_High-Resolution_Image_Synthesis_With_Latent_Diffusion_Models_CVPR_2022_paper.html)）. プレプリント: [arXiv:2112.10752](https://arxiv.org/abs/2112.10752)
+
 <a id="podell-2023"></a>
 - **Podell et al. 2023** — SDXL: Improving Latent Diffusion Models for High-Resolution Image Synthesis. ICLR 2024. [arXiv:2307.01952](https://arxiv.org/abs/2307.01952)
 
